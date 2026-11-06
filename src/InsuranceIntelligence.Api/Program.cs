@@ -1,3 +1,5 @@
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using InsuranceIntelligence.Api.Security;
 using InsuranceIntelligence.Api.Auth;
 using InsuranceIntelligence.Api.Common;
 using InsuranceIntelligence.Api.Azure;
@@ -9,6 +11,7 @@ using InsuranceIntelligence.Api.Channels;
 using InsuranceIntelligence.Api.Claims;
 using InsuranceIntelligence.Api.ClientPortal;
 using InsuranceIntelligence.Api.Customer;
+using InsuranceIntelligence.Api.CustomerAssistant;
 using InsuranceIntelligence.Api.SalesLeads;
 using InsuranceIntelligence.Application.Ai;
 using InsuranceIntelligence.Application.Audit;
@@ -18,6 +21,7 @@ using InsuranceIntelligence.Application.CommandCenter;
 using InsuranceIntelligence.Application.Compliance;
 using InsuranceIntelligence.Application.Core;
 using InsuranceIntelligence.Application.Customers;
+using InsuranceIntelligence.Application.CustomerAssistant;
 using InsuranceIntelligence.Application.SalesLeads;
 using InsuranceIntelligence.Application.Search;
 using InsuranceIntelligence.Domain.Administration;
@@ -31,6 +35,7 @@ using InsuranceIntelligence.Api.Health;
 using InsuranceIntelligence.Api.Integrations;
 using InsuranceIntelligence.Api.Knowledge;
 using InsuranceIntelligence.Api.Local;
+using InsuranceIntelligence.Api.Notifications;
 using InsuranceIntelligence.Api.Reports;
 using InsuranceIntelligence.Api.Search;
 using InsuranceIntelligence.Api.Workflow;
@@ -123,7 +128,60 @@ builder.Services.AddProblemDetails();
 // durable across app restarts on this deployment's current single-instance B1 plan. Scaling to
 // multiple instances would need PersistKeysToAzureBlobStorage + ProtectKeysWithAzureKeyVault so
 // every instance shares one key ring; noted here rather than built speculatively.
-builder.Services.AddDataProtection().SetApplicationName("InsuranceIntelligence");
+var dataProtection = builder.Services.AddDataProtection().SetApplicationName("InsuranceIntelligence");
+if (!string.IsNullOrWhiteSpace(infrastructureOptions.DataProtectionBlobUri) && !string.IsNullOrWhiteSpace(infrastructureOptions.DataProtectionKeyUri))
+{
+    // One shared key ring in blob storage, wrapped by a Key Vault key: every instance reads the
+    // same ring, a redeploy never strands stored credentials, and no key sits on a web server disk.
+    var keyRingCredential = new Azure.Identity.DefaultAzureCredential();
+    dataProtection
+        .PersistKeysToAzureBlobStorage(new Uri(infrastructureOptions.DataProtectionBlobUri), keyRingCredential)
+        .ProtectKeysWithAzureKeyVault(new Uri(infrastructureOptions.DataProtectionKeyUri), keyRingCredential);
+}
+
+if (infrastructureOptions.MultiTenant && !infrastructureOptions.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase))
+{
+    // People sign in with a token; a company's own systems present an API key. One door, two ways in.
+    builder.Services
+        .AddAuthentication(options =>
+        {
+            options.DefaultScheme = "IipAuth";
+            options.DefaultChallengeScheme = "IipAuth";
+        })
+        .AddPolicyScheme("IipAuth", "Bearer token or API key", options =>
+        {
+            options.ForwardDefaultSelector = context =>
+                context.Request.Headers.ContainsKey(InsuranceIntelligence.Api.Auth.ApiKeyAuthenticationHandler.HeaderName)
+                    ? InsuranceIntelligence.Api.Auth.ApiKeyAuthenticationHandler.Scheme
+                    : infrastructureOptions.AcceptsExternalIdAlongsideEntra && InsuranceIntelligence.Api.Auth.TokenIssuer.IsExternalId(context)
+                        ? InsuranceIntelligence.Api.Auth.TokenIssuer.ExternalIdScheme
+                        : JwtBearerDefaults.AuthenticationScheme;
+        })
+        .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, InsuranceIntelligence.Api.Auth.ApiKeyAuthenticationHandler>(
+            InsuranceIntelligence.Api.Auth.ApiKeyAuthenticationHandler.Scheme, _ => { });
+}
+
+builder.Services.AddRateLimiter(limits =>
+{
+    limits.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    limits.AddPolicy("signup", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 10, TimeSpan.FromHours(1)));
+    limits.AddPolicy("join", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 20, TimeSpan.FromMinutes(10)));
+    limits.AddPolicy("academy-learner", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(
+        context, infrastructureOptions.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase) ? 5000 : 240, TimeSpan.FromMinutes(1)));
+    limits.AddPolicy("academy-post", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(
+        context, infrastructureOptions.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase) ? 5000 : 30, TimeSpan.FromHours(1)));
+    limits.AddPolicy("academy-zenith", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(
+        context, infrastructureOptions.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase) ? 5000 : 20, TimeSpan.FromMinutes(1)));
+    limits.AddPolicy("academy-pay", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(
+        context, infrastructureOptions.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase) ? 5000 : 20, TimeSpan.FromMinutes(10)));
+    limits.AddPolicy("academy-public", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 120, TimeSpan.FromMinutes(1)));
+    limits.AddPolicy("marketplace", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 30, TimeSpan.FromMinutes(1)));
+    limits.AddPolicy("webhook", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(context, 3000, TimeSpan.FromMinutes(1)));
+    // Per signed-in person in a deployment. Local development has no signed-in person (a header stands in), so
+    // everything shares one bucket there and the limit is relaxed to keep tests and demos from tripping it.
+    limits.AddPolicy("mfa", context => InsuranceIntelligence.Api.Common.RateLimitKeys.FixedWindow(
+        context, infrastructureOptions.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase) ? 2000 : 30, TimeSpan.FromMinutes(5)));
+});
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(swagger =>
@@ -244,6 +302,56 @@ if (entraConfigured)
                 // (Microsoft.Identity.Web 4.x) exposes no Audience property.
             });
 }
+else if (infrastructureOptions.AuthMode.Equals("EntraExternalId", StringComparison.OrdinalIgnoreCase))
+{
+    // SaaS sign-in: people sign up and in through an Entra External ID tenant (Google, Microsoft
+    // account or email one-time code). Tokens are checked against that tenant's own metadata, so the
+    // issuer is the External ID tenant's and nothing else is accepted. Who a person is comes from
+    // the token; which organisation they may act in comes only from IIP's membership store.
+    var authority = RequireSetting(infrastructureOptions.ExternalIdAuthority, "INSURANCEINTELLIGENCE_EXTERNAL_ID_AUTHORITY");
+    var externalClientId = RequireSetting(infrastructureOptions.EntraClientId, "INSURANCEINTELLIGENCE_ENTRA_CLIENT_ID");
+    var externalAudience = string.IsNullOrWhiteSpace(infrastructureOptions.EntraAudience) ? externalClientId : infrastructureOptions.EntraAudience;
+    builder.Services
+        .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer(jwt =>
+        {
+            jwt.Authority = authority;
+            jwt.Audience = externalAudience;
+            jwt.RequireHttpsMetadata = true;
+            jwt.TokenValidationParameters.ValidateIssuer = true;
+            jwt.TokenValidationParameters.ValidateAudience = true;
+            jwt.TokenValidationParameters.ValidateLifetime = true;
+            jwt.TokenValidationParameters.ValidateIssuerSigningKey = true;
+            jwt.TokenValidationParameters.ClockSkew = TimeSpan.FromMinutes(2);
+        });
+}
+else
+{
+    builder.Services.AddAuthentication();
+}
+
+// Work accounts and External ID (Google, email code) side by side, as CIP does: the External ID tenant's
+// tokens are checked against that tenant's own metadata under a second scheme, and the routing above sends
+// each token to the scheme of the directory that issued it. Work-account checking is unchanged.
+if (infrastructureOptions.AcceptsExternalIdAlongsideEntra)
+{
+    var externalIdClientId = infrastructureOptions.ExternalIdClientId!;
+    var externalIdAudience = string.IsNullOrWhiteSpace(infrastructureOptions.ExternalIdAudience) ? externalIdClientId : infrastructureOptions.ExternalIdAudience;
+    builder.Services
+        .AddAuthentication()
+        .AddJwtBearer(InsuranceIntelligence.Api.Auth.TokenIssuer.ExternalIdScheme, jwt =>
+        {
+            jwt.Authority = infrastructureOptions.ExternalIdAuthority;
+            jwt.Audience = externalIdAudience;
+            jwt.RequireHttpsMetadata = true;
+            jwt.TokenValidationParameters.ValidateIssuer = true;
+            jwt.TokenValidationParameters.ValidateAudience = true;
+            jwt.TokenValidationParameters.ValidAudiences = new[] { externalIdAudience, externalIdClientId }.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+            jwt.TokenValidationParameters.ValidateLifetime = true;
+            jwt.TokenValidationParameters.ValidateIssuerSigningKey = true;
+            jwt.TokenValidationParameters.ClockSkew = TimeSpan.FromMinutes(2);
+        });
+}
 
 // In-memory storage is permitted only for developer-machine execution, so the team can run
 // the platform with no Azure account. Deny-by-default on the runtime profile: anything that
@@ -307,6 +415,8 @@ else
     builder.Services.AddSingleton<IDocumentProcessingProvider, NotConfiguredDocumentProcessingProvider>();
 }
 
+builder.Services.AddSingleton<IImageDerivativeProvider, MagickImageDerivativeProvider>();
+
 // ITranslationProvider is always the tenant-aware resolver now, the same three-step order as
 // ISmsProvider/IEmailSendingProvider: a tenant's own dashboard-configured connection (e.g. Sunbird
 // AI) first, then the deployment's environment-configured engine below, then not configured.
@@ -322,6 +432,7 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.Translation.ITransl
 builder.Services.AddScoped<InsuranceIntelligence.Application.Translation.ITranslationEngineHealth>(sp => sp.GetRequiredService<InsuranceIntelligence.Infrastructure.Translation.TenantAwareTranslationProvider>());
 
 builder.Services.AddSingleton<InsuranceIntelligence.Application.CustomerAssistant.IAssistantLanguageSettings>(sp =>
+
     new InsuranceIntelligence.Api.Local.ConfiguredAssistantLanguageSettings(
         sp.GetRequiredService<InsuranceIntelligence.Domain.Administration.ITenantConfigurationRepository>(), infrastructureOptions.Translation));
 
@@ -357,10 +468,17 @@ if (infrastructureOptions.AiProvider.Equals("AzureOpenAI", StringComparison.Ordi
     // Scoped, not Singleton: both now depend on the scoped IAgentBehaviourProfileRepository
     // (blueprint §6.3) to compose the tenant's configured system prompt on every call. Embeddings
     // carry no per-call prompt, so that one stays Singleton.
-    builder.Services.AddScoped<IAiAssistantProvider, AzureOpenAiAssistantProvider>();
+    // Each model call is wrapped so it is checked against the month's AI credits first and counted after.
+    builder.Services.AddScoped<AzureOpenAiAssistantProvider>();
+    builder.Services.AddScoped<IAiAssistantProvider>(sp => new InsuranceIntelligence.Api.Azure.RecordedAiAssistantProvider(
+        sp.GetRequiredService<AzureOpenAiAssistantProvider>(), sp.GetRequiredService<InsuranceIntelligence.Application.Billing.IAiUsageRecorder>()));
     builder.Services.AddSingleton<IEmbeddingProvider, AzureOpenAiEmbeddingProvider>();
-    builder.Services.AddScoped<IChatCompletionProvider, AzureOpenAiChatCompletionProvider>();
-    builder.Services.AddScoped<IToolCallingChatProvider, AzureOpenAiToolCallingChatProvider>();
+    builder.Services.AddScoped<AzureOpenAiChatCompletionProvider>();
+    builder.Services.AddScoped<IChatCompletionProvider>(sp => new InsuranceIntelligence.Api.Azure.RecordedChatCompletionProvider(
+        sp.GetRequiredService<AzureOpenAiChatCompletionProvider>(), sp.GetRequiredService<InsuranceIntelligence.Application.Billing.IAiUsageRecorder>()));
+    builder.Services.AddScoped<AzureOpenAiToolCallingChatProvider>();
+    builder.Services.AddScoped<IToolCallingChatProvider>(sp => new InsuranceIntelligence.Api.Azure.RecordedToolCallingChatProvider(
+        sp.GetRequiredService<AzureOpenAiToolCallingChatProvider>(), sp.GetRequiredService<InsuranceIntelligence.Application.Billing.IAiUsageRecorder>()));
     builder.Services.AddScoped<IConversationInsightsService, ConversationInsightsService>();
 }
 else if (InsuranceIntelligence.Api.Local.Mock.MockProviderPolicy.IsActive(infrastructureOptions.AiProvider, runtimeProfile))
@@ -465,11 +583,18 @@ builder.Services.AddSingleton<IAiOutputValidator, DeterministicAiOutputValidator
 builder.Services.AddSingleton<IIntentClassifier, DeterministicThenAiIntentClassifier>();
 builder.Services.AddSingleton<IProviderRequirementResolver, ProviderRequirementResolver>();
 builder.Services.AddScoped<INotificationDraftService, CustomerUpdateNotificationDraftService>();
+builder.Services.AddScoped<ICommandCenterAnalyst, CommandCenterAnalyst>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Billing.IAiCreditsSummaryService, InsuranceIntelligence.Application.Billing.AiCreditsSummaryService>();
 builder.Services.AddScoped<ICommandCenterQueryService, CommandCenterQueryService>();
 builder.Services.AddScoped<ICommandCenterConversationService, CommandCenterConversationService>();
 builder.Services.AddScoped<IConversationGroundingService, ConversationGroundingService>();
 // W2.5: Phase 2 core-workspace query services.
 builder.Services.AddScoped<IChannelQueryService, ChannelQueryService>();
+builder.Services.AddScoped<IChannelThreadQueryService, ChannelThreadQueryService>();
+builder.Services.AddScoped<IChannelMessageIngestionService, ChannelMessageIngestionService>();
+builder.Services.AddScoped<IChannelMessageSendService, ChannelMessageSendService>();
+builder.Services.AddScoped<ICustomerFollowUpManagementService, CustomerFollowUpManagementService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Channels.IChannelIdentityService, ChannelIdentityService>();
 builder.Services.AddScoped<ICustomerQueryService, CustomerQueryService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Policies.IPolicyImportService, InsuranceIntelligence.Application.Policies.PolicyImportService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Customers.ICustomerConsentService, InsuranceIntelligence.Application.Customers.CustomerConsentService>();
@@ -480,7 +605,46 @@ builder.Services.AddScoped<ISalesLeadCommandService, SalesLeadCommandService>();
 builder.Services.AddScoped<IProspectListImportService, ProspectListImportService>();
 builder.Services.AddScoped<IProspectTriageService, ProspectTriageService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Workspace.IWorkspaceService, InsuranceIntelligence.Application.Workspace.WorkspaceService>();
+builder.Services.AddScoped<IProspectListImportService, ProspectListImportService>();
+builder.Services.AddSingleton(InsuranceIntelligence.Infrastructure.Connections.FileProviderOptions.From(builder.Configuration));
+builder.Services.AddHttpClient(InsuranceIntelligence.Infrastructure.Connections.UserFileService.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(30));
+builder.Services.AddScoped<InsuranceIntelligence.Application.Integrations.IUserFileService, InsuranceIntelligence.Infrastructure.Connections.UserFileService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Integrations.IFileAccessTokenProvider>(provider => provider.GetRequiredService<InsuranceIntelligence.Application.Integrations.IUserFileService>());
 builder.Services.AddScoped<InsuranceIntelligence.Application.Academy.IAcademyPricingService, InsuranceIntelligence.Application.Academy.AcademyPricingService>();
+builder.Services.AddSingleton<InsuranceIntelligence.Api.Academy.IAcademyContentProvider, InsuranceIntelligence.Api.Academy.AcademyContentProvider>();
+builder.Services.AddSingleton<InsuranceIntelligence.Api.Academy.AcademyOperator>();
+builder.Services.AddScoped<InsuranceIntelligence.Api.Academy.AcademyLearnerService>();
+builder.Services.AddScoped<InsuranceIntelligence.Api.Academy.AcademyCommunityService>();
+builder.Services.AddScoped<InsuranceIntelligence.Api.Academy.IZenithModel, InsuranceIntelligence.Api.Academy.ChatZenithModel>();
+builder.Services.AddScoped<InsuranceIntelligence.Api.Academy.AcademyZenithService>();
+builder.Services.AddScoped<InsuranceIntelligence.Api.Academy.AcademySettingsService>();
+builder.Services.AddScoped<InsuranceIntelligence.Api.Academy.Payments.IAcademyPriceSource, InsuranceIntelligence.Api.Academy.Payments.AcademyPriceSource>();
+builder.Services.AddScoped<InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentService>();
+builder.Services.AddHttpClient<InsuranceIntelligence.Api.Academy.Payments.FlutterwaveGateway>();
+// Which payment provider is used: the local stand-in only when asked for in development, Flutterwave when its key is set,
+// otherwise none (enrolment stays open and nothing is charged, and the pages say so).
+builder.Services.AddScoped<InsuranceIntelligence.Api.Academy.Payments.IPaymentGateway>(sp =>
+{
+    var configuration = sp.GetRequiredService<IConfiguration>();
+    if (string.Equals(configuration["Academy:Payments:Provider"], "Fake", StringComparison.OrdinalIgnoreCase)
+        && infrastructureOptions.AuthMode.Equals("Development", StringComparison.OrdinalIgnoreCase))
+    {
+        return new InsuranceIntelligence.Api.Academy.Payments.FakePaymentGateway(configuration);
+    }
+
+    var flutterwave = sp.GetRequiredService<InsuranceIntelligence.Api.Academy.Payments.FlutterwaveGateway>();
+    return flutterwave.Configured ? flutterwave : new InsuranceIntelligence.Api.Academy.Payments.NotConfiguredPaymentGateway();
+});
+builder.Services.AddHostedService<InsuranceIntelligence.Api.Academy.Payments.PaymentReconcileWorker>();
+builder.Services.TryAddSingleton(TimeProvider.System);
+builder.Services.AddSingleton(new InsuranceIntelligence.Application.Security.PlatformMfaOptions());
+builder.Services.AddScoped<InsuranceIntelligence.Application.Security.IPlatformMfaService, InsuranceIntelligence.Application.Security.PlatformMfaService>();
+// Passkeys work only on the portal addresses listed here (Security:WebAuthnOrigins, comma separated).
+builder.Services.AddSingleton(new InsuranceIntelligence.Application.Security.PasskeyOptions(
+    (builder.Configuration["Security:WebAuthnOrigins"]
+        ?? "https://app.insuranceintelligenceplatform.com,https://app-portal-dev-h5girbnzrayqe.azurewebsites.net,http://localhost:3000,http://127.0.0.1:3000")
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)));
+builder.Services.AddScoped<InsuranceIntelligence.Application.Security.IPasskeyService, InsuranceIntelligence.Infrastructure.Security.PasskeyService>();
 // A message that cannot reach a real phone may be recorded as a clearly labelled demonstration send, but
 // only where the runtime profile is not protected. In Staging and Production it is blocked, never faked.
 builder.Services.AddSingleton(new OutreachOptions(!AzureProviderStartupValidator.IsProtectedRuntime(runtimeProfile)));
@@ -489,6 +653,7 @@ builder.Services.AddScoped<IAcquisitionReportService, AcquisitionReportService>(
 builder.Services.AddScoped<InsuranceIntelligence.Application.Brief.IBriefService, InsuranceIntelligence.Application.Brief.BriefService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IProductQueryService, InsuranceIntelligence.Application.Products.ProductQueryService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IProductCommandService, InsuranceIntelligence.Application.Products.ProductCommandService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IProductWordingExtractionService, InsuranceIntelligence.Application.Products.ProductWordingExtractionService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IClaimTypeService, InsuranceIntelligence.Application.Products.ClaimTypeService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Products.IWordingDraftService, InsuranceIntelligence.Application.Products.WordingDraftService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Compliance.IClaimantConsentService, InsuranceIntelligence.Application.Compliance.ClaimantConsentService>();
@@ -569,6 +734,22 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.Agents.Tools.IAgent
 builder.Services.AddScoped<InsuranceIntelligence.Application.ClaimsSummary.IClaimsSummaryService, InsuranceIntelligence.Application.ClaimsSummary.ClaimsSummaryService>();
 // Customer 360 briefing, chat instructions, and the automatic review every new claim receives.
 builder.Services.AddMemoryCache();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Knowledge.IKnowledgeIngestionSink, InsuranceIntelligence.Application.Knowledge.KnowledgeIngestionService>();
+builder.Services.AddScoped<InsuranceIntelligence.Domain.Integrations.IConnectorFileSource, InsuranceIntelligence.Infrastructure.Connectors.MicrosoftGraphFileSource>();
+builder.Services.AddScoped<InsuranceIntelligence.Domain.Integrations.IConnectorFileSource, InsuranceIntelligence.Infrastructure.Connectors.GoogleDriveFileSource>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Connectors.IConnectorSyncService, InsuranceIntelligence.Application.Connectors.ConnectorSyncService>();
+builder.Services.AddHostedService<InsuranceIntelligence.Api.Connectors.ConnectorSyncWorker>();
+builder.Services.AddHostedService<InsuranceIntelligence.Api.Rules.RuleRunWorker>();
+// JSON lists are large and the people reading them are far from the data centre; compressing them costs a little CPU
+// and saves far more waiting. Brotli at its fastest level is the cheap setting on a small plan.
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProvider>();
+    options.Providers.Add<Microsoft.AspNetCore.ResponseCompression.GzipCompressionProvider>();
+});
+builder.Services.Configure<Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProviderOptions>(o => o.Level = System.IO.Compression.CompressionLevel.Fastest);
+builder.Services.Configure<Microsoft.AspNetCore.ResponseCompression.GzipCompressionProviderOptions>(o => o.Level = System.IO.Compression.CompressionLevel.Fastest);
 builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerSummary.ICustomerSummaryService, InsuranceIntelligence.Application.CustomerSummary.CustomerSummaryService>();
 builder.Services.AddScoped<ICommandCenterActionService, CommandCenterActionService>();
 // Durable background work (build-loop item 17): document processing and claim review are jobs in the
@@ -585,6 +766,7 @@ builder.Services.AddHostedService<InsuranceIntelligence.Api.Admin.Billing.Billin
 builder.Services.AddSingleton<InsuranceIntelligence.Api.Agents.ConversationInsightsQueue>();
 builder.Services.AddSingleton<IConversationInsightsQueue>(sp => sp.GetRequiredService<InsuranceIntelligence.Api.Agents.ConversationInsightsQueue>());
 builder.Services.AddHostedService<InsuranceIntelligence.Api.Agents.ConversationInsightsWorker>();
+builder.Services.AddHostedService<InsuranceIntelligence.Api.Webhooks.OutboundWebhookWorker>();
 builder.Services.AddSingleton<InsuranceIntelligence.Api.Jobs.IBackgroundJobHandler, InsuranceIntelligence.Api.Integrations.WhatsAppAssistantJobHandler>();
 // WO-14: one instance backs both the emitter (called from the 5 real event sites) and the
 // recipient's own feed (list/read-state), same underlying repository either way.
@@ -629,12 +811,27 @@ var demoRuntime = InsuranceIntelligence.Api.Azure.AzureProviderStartupValidator
     .ResolveRuntimeProfile(infrastructureOptions, builder.Environment.EnvironmentName)
     .Equals("Demo", StringComparison.OrdinalIgnoreCase);
 var demoPhoneNumber = builder.Configuration["INSURANCEINTELLIGENCE_DEMO_PHONE_NUMBER"];
+// The SMS possession check before a WhatsApp customer can discuss a claim stays on everywhere except a deliberate,
+// Demo-profile-only setting for presenting, so a presenter is not stopped by a code sent to a phone that is not theirs.
+// Outside the Demo runtime profile the setting is ignored; set it back to false (or remove it) to restore the check.
+var skipClaimIdentityForDemo = demoRuntime
+    && string.Equals(builder.Configuration["INSURANCEINTELLIGENCE_DEMO_SKIP_CLAIM_IDENTITY"], "true", StringComparison.OrdinalIgnoreCase);
+if (skipClaimIdentityForDemo)
+{
+    builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.IClaimIdentityVerifier, InsuranceIntelligence.Application.CustomerAssistant.DemoSkippedClaimIdentityVerifier>();
+}
+else
+{
+    builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.IClaimIdentityVerifier, InsuranceIntelligence.Application.CustomerAssistant.ClaimIdentityVerifier>();
+}
 builder.Services.AddSingleton(demoRuntime && !string.IsNullOrWhiteSpace(demoPhoneNumber)
     ? new InsuranceIntelligence.Application.CustomerAssistant.DemoSessionSettings(true, demoPhoneNumber.Trim())
     : InsuranceIntelligence.Application.CustomerAssistant.DemoSessionSettings.Disabled);
 builder.Services.AddSingleton(new InsuranceIntelligence.Application.DemoSeeding.DemoPolicyholderSettings(
     builder.Configuration["INSURANCEINTELLIGENCE_DEMO_POLICYHOLDER_NAME"] ?? string.Empty));
 builder.Services.AddScoped<InsuranceIntelligence.Application.DemoSeeding.MicroinsuranceDemoSeeder>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.DemoScenarios.DemoScenarioPolicyholderSeeder>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.DemoScenarios.DemoScenarioService>();
 builder.Services.AddScoped<InsuranceIntelligence.Infrastructure.Translation.SunbirdVoiceNoteTranscriber>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.IVoiceNoteTranscriber>(sp => sp.GetRequiredService<InsuranceIntelligence.Infrastructure.Translation.SunbirdVoiceNoteTranscriber>());
 builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.IVoiceNoteSpeaker>(sp => sp.GetRequiredService<InsuranceIntelligence.Infrastructure.Translation.SunbirdVoiceNoteTranscriber>());
@@ -703,11 +900,18 @@ var app = builder.Build();
 await app.Services.InitializeInsuranceIntelligenceInfrastructureAsync(app.Environment);
 
 // Offline developer mode: with in-memory storage the database starts empty on every run, so
+var multiTenantProblems = InsuranceIntelligence.Infrastructure.Configuration.MultiTenantStartupGuard.Problems(infrastructureOptions);
+if (multiTenantProblems.Count > 0)
+{
+    throw new InvalidOperationException("Multi-tenant configuration is unsafe: " + string.Join(" ", multiTenantProblems));
+}
+
 // seed the demo dataset at boot to give the app something to show without any Azure account.
 // Guarded to in-memory storage only, this can never run against SqlServer, and the storage
 // provider itself is already restricted to local runtimes.
 if (infrastructureOptions.StorageProvider.Equals("InMemory", StringComparison.OrdinalIgnoreCase)
-    && infrastructureOptions.SeedDemoData)
+    && infrastructureOptions.SeedDemoData
+    && !infrastructureOptions.MultiTenant)
 {
     using var seedScope = app.Services.CreateScope();
     var seedService = seedScope.ServiceProvider
@@ -728,7 +932,23 @@ if (infrastructureOptions.StorageProvider.Equals("InMemory", StringComparison.Or
 // Always return a generic RFC 7807 response. Exception details and request headers stay server-side.
 app.UseExceptionHandler();
 
+app.UseResponseCompression();
+
 app.UseCors();
+
+// When the month's AI credits are used up, an endpoint that needed the model says so plainly (402) instead of failing.
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (InsuranceIntelligence.Application.Billing.AiCreditsExhaustedException) when (!context.Response.HasStarted)
+    {
+        context.Response.StatusCode = StatusCodes.Status402PaymentRequired;
+        await context.Response.WriteAsJsonAsync(new { code = "credits_exhausted", message = "AI credits for this month are used up. Ask your administrator to add credits." });
+    }
+});
 
 // Swagger UI + JSON contract document, Development/LocalTest only (secure baseline).
 if (developmentDiagnosticsEnabled)
@@ -738,6 +958,7 @@ if (developmentDiagnosticsEnabled)
 }
 
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 app.UseRateLimiter();
 
@@ -802,9 +1023,23 @@ app.Use(async (context, next) =>
             var userId = DemoAuthorization.GetUserId(context, fallback: string.Empty);
             if (!string.IsNullOrWhiteSpace(userId))
             {
-                var tenantHint = RuntimeClaimTypes.TenantScope
-                    .Select(t => context.User.FindFirst(t)?.Value)
-                    .FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+                var requestedOrganisation = context.Request.Headers.TryGetValue(
+                    RuntimeClaimTypes.RequestedOrganisationHeaderName, out var requestedOrganisationValue)
+                    ? requestedOrganisationValue.ToString()
+                    : null;
+                // A key acts only in the organisation it belongs to, whatever the header says.
+                if (context.Items[InsuranceIntelligence.Api.Auth.ApiKeyAuthenticationHandler.OrganisationItemKey] is string keyOrganisation)
+                {
+                    requestedOrganisation = keyOrganisation;
+                }
+
+                var tenantHint = !string.IsNullOrWhiteSpace(requestedOrganisation)
+                    ? requestedOrganisation.Trim()
+                    : infrastructureOptions.MultiTenant
+                        ? null // the token's tenant claim is a sign-in directory, never an insurer
+                        : RuntimeClaimTypes.TenantScope
+                            .Select(t => context.User.FindFirst(t)?.Value)
+                            .FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
                 // The portal's workspace switcher (WO-13) sends the user's chosen workspace as a
                 // request header, not a claim, a new token isn't minted per switch. It is only ever
                 // a hint: GetEffectiveMembershipAsync below re-validates it against the user's real
@@ -824,6 +1059,16 @@ app.Use(async (context, next) =>
                     .GetRequiredService<IPermissionReadRepository>()
                     .GetEffectiveMembershipAsync(userId, tenantHint, workspaceHint, context.RequestAborted);
 
+                if (membership is null && context.Request.Path.StartsWithSegments("/api/v1/me", StringComparison.OrdinalIgnoreCase)
+                    && !context.Request.Path.StartsWithSegments("/api/v1/me/organisations", StringComparison.OrdinalIgnoreCase))
+                {
+                    // The identity lookup is the one that locks a person out, and the refusal said nothing about why.
+                    // Record what was asked, never a token: the account id and the two hints.
+                    context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("MembershipLookup").LogWarning(
+                        "No single active membership for user {UserId} (tenant hint {TenantHint}, workspace hint {WorkspaceHint}, organisation header {OrganisationHeader}).",
+                        userId, tenantHint ?? "(none)", workspaceHint ?? "(none)", requestedOrganisation ?? "(none)");
+                }
+
                 if (membership is not null)
                 {
                     context.Items[DemoAuthorization.EffectivePermissionsItemKey] = membership.Permissions;
@@ -836,6 +1081,9 @@ app.Use(async (context, next) =>
 
     await next();
 });
+
+// The second step after sign-in. A no-op unless the organisation turned it on (Settings, Security).
+app.UseMiddleware<InsuranceIntelligence.Api.Security.PlatformMfaEnforcementMiddleware>();
 
 app.MapGet("/health", (InfrastructureOptions options) => Results.Ok(new
 {
@@ -867,6 +1115,51 @@ app.MapPost("/api/v1/admin/invitations", InsuranceIntelligence.Api.Identity.Iden
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
 app.MapDelete("/api/v1/admin/invitations/{invitationId:guid}", InsuranceIntelligence.Api.Identity.IdentityEndpoints.Revoke)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+// SaaS: sign-up, invitations, broker/insurer links. See docs/01-strategy-requirements-roadmap/IIP_SAAS_BUILD_PLAN.md.
+app.MapPost("/api/v1/organisations", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Create).RequireRateLimiting("signup");
+app.MapPost("/api/v1/admin/organisations/adopt-current-tenant", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.AdoptCurrentTenant)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapGet("/api/v1/me/organisations", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Mine);
+// A person's own Google Drive and OneDrive connection: self-scoped, no organisation permission.
+app.MapGet("/api/v1/me/file-connections", InsuranceIntelligence.Api.Integrations.FileConnectionEndpoints.Status);
+app.MapPost("/api/v1/me/file-connections/{provider}/start", InsuranceIntelligence.Api.Integrations.FileConnectionEndpoints.Start);
+app.MapPost("/api/v1/me/file-connections/{provider}/exchange", InsuranceIntelligence.Api.Integrations.FileConnectionEndpoints.Exchange);
+app.MapDelete("/api/v1/me/file-connections/{provider}", InsuranceIntelligence.Api.Integrations.FileConnectionEndpoints.Disconnect);
+app.MapGet("/api/v1/me/file-connections/{provider}/files", InsuranceIntelligence.Api.Integrations.FileConnectionEndpoints.Browse);
+app.MapGet("/api/v1/me/file-connections/{provider}/files/{fileId}/content", InsuranceIntelligence.Api.Integrations.FileConnectionEndpoints.Content);
+app.MapGet("/api/v1/me/file-connections/google/picker", InsuranceIntelligence.Api.Integrations.FileConnectionEndpoints.Picker);
+app.MapPost("/api/v1/organisation/invitations/accept", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Accept).RequireRateLimiting("join");
+app.MapGet("/api/v1/organisation/invitations", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.ListInvitations);
+app.MapPost("/api/v1/organisation/invitations", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Invite);
+app.MapDelete("/api/v1/organisation/invitations/{invitationId:guid}", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.RevokeInvitation);
+app.MapGet("/api/v1/organisation/links", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.ListLinks);
+app.MapPost("/api/v1/organisation/links", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.RequestLink);
+app.MapPost("/api/v1/organisation/links/{linkId:guid}/approve", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Approve);
+app.MapPost("/api/v1/organisation/links/{linkId:guid}/decline", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Decline);
+app.MapPost("/api/v1/organisation/links/{linkId:guid}/revoke", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Revoke);
+app.MapGet("/api/v1/organisation/broker-dashboard", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.BrokerDashboard);
+app.MapPost("/api/v1/marketplace/resolve", InsuranceIntelligence.Api.Marketplace.MarketplaceEndpoints.Resolve).RequireRateLimiting("marketplace");
+app.MapPost("/api/v1/marketplace/activate", InsuranceIntelligence.Api.Marketplace.MarketplaceEndpoints.Activate).RequireRateLimiting("marketplace");
+app.MapPost("/api/v1/marketplace/webhook", InsuranceIntelligence.Api.Marketplace.MarketplaceEndpoints.Webhook).RequireRateLimiting("webhook");
+app.MapGet("/api/v1/organisation/onboarding", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Onboarding);
+app.MapGet("/api/v1/organisation/profile", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.GetProfile);
+app.MapPut("/api/v1/organisation/profile", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.SaveProfile);
+app.MapPost("/api/v1/organisation/terms", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.AcceptTerms);
+app.MapGet("/api/v1/organisation/security", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.GetSecurity);
+app.MapPost("/api/v1/organisation/security-ack", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.AcknowledgeSecurity);
+app.MapPost("/api/v1/organisation/sandbox", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.EnableSandbox);
+app.MapGet("/api/v1/events/catalogue", InsuranceIntelligence.Api.Webhooks.WebhookEndpoints.Catalogue);
+app.MapPost("/api/v1/organisation/webhooks", InsuranceIntelligence.Api.Webhooks.WebhookEndpoints.Create);
+app.MapGet("/api/v1/organisation/webhooks", InsuranceIntelligence.Api.Webhooks.WebhookEndpoints.List);
+app.MapDelete("/api/v1/organisation/webhooks/{subscriptionId:guid}", InsuranceIntelligence.Api.Webhooks.WebhookEndpoints.Remove);
+app.MapPost("/api/v1/organisation/webhooks/{subscriptionId:guid}/test", InsuranceIntelligence.Api.Webhooks.WebhookEndpoints.Test);
+app.MapGet("/api/v1/organisation/webhooks/{subscriptionId:guid}/deliveries", InsuranceIntelligence.Api.Webhooks.WebhookEndpoints.Deliveries);
+app.MapPost("/api/v1/organisation/api-keys", InsuranceIntelligence.Api.Organisations.ApiKeyEndpoints.Create);
+app.MapGet("/api/v1/organisation/api-keys", InsuranceIntelligence.Api.Organisations.ApiKeyEndpoints.List);
+app.MapDelete("/api/v1/organisation/api-keys/{keyId:guid}", InsuranceIntelligence.Api.Organisations.ApiKeyEndpoints.Revoke);
+app.MapGet("/api/v1/organisation/usage", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Usage);
+app.MapGet("/api/v1/organisation/data-export", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.ExportData);
+app.MapPost("/api/v1/organisation/close", InsuranceIntelligence.Api.Organisations.OrganisationEndpoints.Close);
 
 // WO-14: the recipient's own feed, self-scoped like /api/v1/me, no extra permission (any
 // authenticated tenant member can see their own notifications).
@@ -932,6 +1225,10 @@ app.MapGet("/api/v1/document-checklist/preview", InsuranceIntelligence.Api.Docum
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.CreateClaim));
 app.MapGet("/api/v1/policy-lookup", InsuranceIntelligence.Api.Cases.PolicyLookupEndpoints.LookupByPolicyNumber)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.CreateClaim));
+app.MapGet("/api/v1/exports/claims-register", InsuranceIntelligence.Api.Exports.ExportEndpoints.ClaimsRegister)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ExportEvidencePack));
+app.MapGet("/api/v1/exports/claims-register/columns", InsuranceIntelligence.Api.Exports.ExportEndpoints.ClaimsRegisterColumns)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ExportEvidencePack));
 app.MapGet("/api/v1/cases", CaseEndpoints.ListCases)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapGet("/api/v1/cases/{caseId:guid}", CaseEndpoints.GetCase)
@@ -1104,6 +1401,10 @@ app.MapPost("/api/v1/cases/{caseId:guid}/customer-updates/write", CustomerUpdate
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
 app.MapPost("/api/v1/cases/{caseId:guid}/customer-updates/from-template", CustomerUpdateEndpoints.CreateCustomerUpdateFromTemplate)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
+app.MapGet("/api/v1/customer-follow-ups", CustomerFollowUpEndpoints.List)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
+app.MapPost("/api/v1/customer-follow-ups/{taskId:guid}/cancel", CustomerFollowUpEndpoints.Cancel)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
 
 // Message template library (outcome D), versioned exactly like agent behaviour and products.
 app.MapGet("/api/v1/communication-templates", InsuranceIntelligence.Api.Workflow.CommunicationTemplateEndpoints.ListTemplates)
@@ -1182,6 +1483,20 @@ if (developmentDiagnosticsEnabled)
 // W2.5: Phase 2 core-workspace read routes (see docs/02-development-engineering/iip_api_specification.md).
 app.MapGet("/api/v1/channels/overview", ChannelEndpoints.GetOverview)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewChannels));
+app.MapGet("/api/v1/channels/conversations/{channel}/{threadId}", ChannelEndpoints.GetThread)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewChannels));
+app.MapPost("/api/v1/channels/conversations/{channel}/{threadId}/messages", ChannelEndpoints.SendMessage)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications, Permission.SendCustomerUpdate));
+app.MapPost("/api/v1/channels/conversations/{channel}/{threadId}/identity-link", ChannelIdentityEndpoints.Link)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications, Permission.ViewCustomers));
+app.MapGet("/api/v1/channels/conversations/{channel}/{threadId}/identity-link", ChannelIdentityEndpoints.GetForThread)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewChannels));
+app.MapGet("/api/v1/customers/{customerId}/channel-identities", ChannelIdentityEndpoints.ListForCustomer)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCustomers, Permission.ViewChannels));
+app.MapGet("/api/v1/customers/{customerId}/channel-timeline", ChannelIdentityEndpoints.GetCustomerTimeline)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCustomers, Permission.ViewChannels));
+app.MapPost("/api/v1/channel-identities/{linkId:guid}/revoke", ChannelIdentityEndpoints.Revoke)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
 app.MapGet("/api/v1/customers", CustomerProfileEndpoints.ListCustomers)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCustomers));
 app.MapGet("/api/v1/customers/{customerId}", CustomerProfileEndpoints.GetCustomerProfile)
@@ -1200,8 +1515,88 @@ app.MapGet("/api/v1/directory/people", InsuranceIntelligence.Api.People.PeopleEn
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims, Permission.ViewCustomers, Permission.ViewSalesLeads));
 app.MapGet("/api/v1/brief", InsuranceIntelligence.Api.Brief.BriefEndpoints.GetBrief)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
+app.MapGet("/api/v1/academy/me", InsuranceIntelligence.Api.Academy.AcademyMeEndpoint.Get).RequireRateLimiting("academy-public");
+app.MapGet("/api/v1/academy/public/courses", InsuranceIntelligence.Api.Academy.AcademyPublicEndpoints.Courses).RequireRateLimiting("academy-public");
+app.MapGet("/api/v1/academy/public/courses/{courseId}", InsuranceIntelligence.Api.Academy.AcademyPublicEndpoints.Course).RequireRateLimiting("academy-public");
+app.MapGet("/api/v1/academy/public/certificates/{code}", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.Verify).RequireRateLimiting("academy-public");
+app.MapGet("/api/v1/academy/learner", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.State).RequireRateLimiting("academy-learner");
+app.MapPut("/api/v1/academy/learner/profile", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.UpdateProfile).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/learner/notifications/read", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.ReadNotifications).RequireRateLimiting("academy-learner");
+app.MapGet("/api/v1/academy/learner/certificates/{certificateId}", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.Certificate).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/courses/{courseId}/enrol", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.Enrol).RequireRateLimiting("academy-learner");
+app.MapGet("/api/v1/academy/courses/{courseId}/lessons/{lessonId}", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.Lesson).RequireRateLimiting("academy-learner");
+app.MapGet("/api/v1/academy/courses/{courseId}/lessons/{lessonId}/media/{fileName}", InsuranceIntelligence.Api.Academy.AcademyMediaEndpoints.Get).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/courses/{courseId}/lessons/{lessonId}/complete", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.Complete).RequireRateLimiting("academy-learner");
+app.MapPut("/api/v1/academy/courses/{courseId}/lessons/{lessonId}/note", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.Note).RequireRateLimiting("academy-learner");
+app.MapGet("/api/v1/academy/courses/{courseId}/assessments/{assessmentId}", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.StartAssessment).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/courses/{courseId}/assessments/{assessmentId}/submit", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.SubmitAssessment).RequireRateLimiting("academy-learner");
+app.MapGet("/api/v1/academy/courses/{courseId}/final", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.FinalTask).RequireRateLimiting("academy-learner");
+app.MapPut("/api/v1/academy/courses/{courseId}/final", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.SaveFinalDraft).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/courses/{courseId}/final/submit", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.SubmitFinal).RequireRateLimiting("academy-learner");
+app.MapGet("/api/v1/academy/operator/finals", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.PendingFinals).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/operator/finals/mark", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.MarkFinal).RequireRateLimiting("academy-learner");
+app.MapGet("/api/v1/academy/operator/learners", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.Learners).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/operator/enrol", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.OperatorEnrol).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/operator/assessments/reset", InsuranceIntelligence.Api.Academy.AcademyLearnerEndpoints.ResetAssessment).RequireRateLimiting("academy-learner");
+app.MapGet("/api/v1/academy/community", InsuranceIntelligence.Api.Academy.AcademyCommunityEndpoints.State).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/community/consent", InsuranceIntelligence.Api.Academy.AcademyCommunityEndpoints.Consent).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/community/groups/{groupId}/join", InsuranceIntelligence.Api.Academy.AcademyCommunityEndpoints.Join).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/community/groups/{groupId}/leave", InsuranceIntelligence.Api.Academy.AcademyCommunityEndpoints.Leave).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/community/posts", InsuranceIntelligence.Api.Academy.AcademyCommunityEndpoints.Post).RequireRateLimiting("academy-post");
+app.MapPost("/api/v1/academy/community/posts/{postId}/like", InsuranceIntelligence.Api.Academy.AcademyCommunityEndpoints.Like).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/community/posts/{postId}/comments", InsuranceIntelligence.Api.Academy.AcademyCommunityEndpoints.Comment).RequireRateLimiting("academy-post");
+app.MapPost("/api/v1/academy/community/posts/{postId}/report", InsuranceIntelligence.Api.Academy.AcademyCommunityEndpoints.Report).RequireRateLimiting("academy-post");
+app.MapDelete("/api/v1/academy/community/posts/{postId}", InsuranceIntelligence.Api.Academy.AcademyCommunityEndpoints.Delete).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/community/events/{eventId}/rsvp", InsuranceIntelligence.Api.Academy.AcademyCommunityEndpoints.Rsvp).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/operator/community/events", InsuranceIntelligence.Api.Academy.AcademyCommunityEndpoints.CreateEvent).RequireRateLimiting("academy-learner");
+app.MapDelete("/api/v1/academy/operator/community/events/{eventId}", InsuranceIntelligence.Api.Academy.AcademyCommunityEndpoints.DeleteEvent).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/operator/community/groups", InsuranceIntelligence.Api.Academy.AcademyCommunityEndpoints.CreateGroup).RequireRateLimiting("academy-learner");
+app.MapPut("/api/v1/academy/operator/community/discord", InsuranceIntelligence.Api.Academy.AcademyCommunityEndpoints.SetDiscord).RequireRateLimiting("academy-learner");
+app.MapGet("/api/v1/academy/operator/community/reports", InsuranceIntelligence.Api.Academy.AcademyCommunityEndpoints.Reports).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/operator/community/posts/{postId}/hide", InsuranceIntelligence.Api.Academy.AcademyCommunityEndpoints.Hide).RequireRateLimiting("academy-learner");
+app.MapGet("/api/v1/academy/zenith/status", InsuranceIntelligence.Api.Academy.AcademyZenithEndpoints.Status).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/zenith/ask", InsuranceIntelligence.Api.Academy.AcademyZenithEndpoints.Ask).RequireRateLimiting("academy-zenith");
+app.MapPost("/api/v1/academy/zenith/quiz/answer", InsuranceIntelligence.Api.Academy.AcademyZenithEndpoints.CheckQuiz).RequireRateLimiting("academy-learner");
+app.MapGet("/api/v1/academy/courses/{courseId}/offer", InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentEndpoints.Offer).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/courses/{courseId}/checkout", InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentEndpoints.Checkout).RequireRateLimiting("academy-pay");
+app.MapPost("/api/v1/academy/payments/confirm", InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentEndpoints.Confirm).RequireRateLimiting("academy-pay");
+app.MapPost("/api/v1/academy/payments/webhook", InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentEndpoints.Webhook).RequireRateLimiting("webhook");
+app.MapGet("/api/v1/academy/operator/payments", InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentEndpoints.Orders).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/operator/payments/{reference}/recheck", InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentEndpoints.Recheck).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/operator/payments/{reference}/refunded", InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentEndpoints.Refunded).RequireRateLimiting("academy-learner");
+app.MapGet("/api/v1/academy/operator/settings/payments", InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentEndpoints.GetPaymentSettings).RequireRateLimiting("academy-learner");
+app.MapPut("/api/v1/academy/operator/settings/payments", InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentEndpoints.SavePaymentSettings).RequireRateLimiting("academy-learner");
+app.MapGet("/api/v1/academy/operator/settings/zenith", InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentEndpoints.GetZenithSettings).RequireRateLimiting("academy-learner");
+app.MapPut("/api/v1/academy/operator/settings/zenith", InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentEndpoints.SaveZenithSettings).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/courses/{courseId}/final/open", InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentEndpoints.FinalOpen).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/courses/{courseId}/final/leave", InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentEndpoints.FinalLeave).RequireRateLimiting("academy-learner");
+app.MapPost("/api/v1/academy/courses/{courseId}/assessments/{assessmentId}/leave", InsuranceIntelligence.Api.Academy.Payments.AcademyPaymentEndpoints.AssessmentLeave).RequireRateLimiting("academy-learner");
 app.MapGet("/api/v1/academy/pricing", InsuranceIntelligence.Api.Academy.AcademyEndpoints.GetPricing);
 app.MapPut("/api/v1/academy/pricing", InsuranceIntelligence.Api.Academy.AcademyEndpoints.SavePricing)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+
+// Second step after sign-in (two-factor). See IIP_CIP_CHANNELS_AND_INTEGRATIONS_BUILD_PLAN.md, workstream S1.
+app.MapGet("/api/v1/security/mfa/status", PlatformMfaEndpoints.GetStatus);
+app.MapPost("/api/v1/security/mfa/totp/begin", PlatformMfaEndpoints.BeginTotp).RequireRateLimiting("mfa");
+app.MapPost("/api/v1/security/mfa/totp/confirm", PlatformMfaEndpoints.ConfirmTotp).RequireRateLimiting("mfa");
+app.MapDelete("/api/v1/security/mfa/credentials/{method}/{id:guid}", PlatformMfaEndpoints.RemoveCredential);
+app.MapPost("/api/v1/security/mfa/backup-codes/rotate", PlatformMfaEndpoints.RotateBackupCodes).RequireRateLimiting("mfa");
+app.MapPost("/api/v1/security/mfa/codes/send", PlatformMfaEndpoints.SendCode).RequireRateLimiting("mfa");
+app.MapPost("/api/v1/security/mfa/codes/confirm", PlatformMfaEndpoints.ConfirmCode).RequireRateLimiting("mfa");
+app.MapDelete("/api/v1/security/mfa/channels/{channel}", PlatformMfaEndpoints.DisableChannel);
+app.MapPost("/api/v1/security/mfa/verify", PlatformMfaEndpoints.Verify).RequireRateLimiting("mfa");
+app.MapPost("/api/v1/security/mfa/passkey/register/options", PlatformMfaEndpoints.PasskeyRegistrationOptions).RequireRateLimiting("mfa");
+app.MapPost("/api/v1/security/mfa/passkey/register/result", PlatformMfaEndpoints.PasskeyRegistrationResult).RequireRateLimiting("mfa");
+app.MapPost("/api/v1/security/mfa/passkey/assert/options", PlatformMfaEndpoints.PasskeyAssertionOptions).RequireRateLimiting("mfa");
+app.MapPost("/api/v1/security/mfa/passkey/assert/result", PlatformMfaEndpoints.PasskeyAssertionResult).RequireRateLimiting("mfa");
+app.MapPost("/api/v1/security/mfa/snooze", PlatformMfaEndpoints.Snooze);
+app.MapPost("/api/v1/security/mfa/sign-out", PlatformMfaEndpoints.SignOut);
+app.MapGet("/api/v1/security/mfa/policy", PlatformMfaEndpoints.GetPolicy);
+app.MapPut("/api/v1/security/mfa/policy", PlatformMfaEndpoints.SetPolicy)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapPost("/api/v1/security/mfa/users/{userId}/reset", PlatformMfaEndpoints.ResetUser)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapGet("/api/v1/security/mfa/metrics", PlatformMfaEndpoints.GetMetrics)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
 app.MapGet("/api/v1/sales-leads", SalesLeadEndpoints.ListLeads)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewSalesLeads));
@@ -1349,10 +1744,16 @@ app.MapPost("/api/v1/products/{productId:guid}/reject", InsuranceIntelligence.Ap
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
 app.MapPost("/api/v1/products/{productId:guid}/retire", InsuranceIntelligence.Api.Products.ProductEndpoints.Retire)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapGet("/api/v1/products/wording-extractions", InsuranceIntelligence.Api.Products.ProductEndpoints.ListWordingExtractions)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
+app.MapPost("/api/v1/products/wording-extractions/{knowledgeDocumentId:guid}", InsuranceIntelligence.Api.Products.ProductEndpoints.ExtractWording)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
 
 // Document type catalog (claim intake build prompt outcome A): the eight built-in types plus
 // whatever an insurer adds, versioned like communication templates. Backs the document matrix
 // dropdown and the report of products whose matrix already holds a key the catalog does not know.
+app.MapGet("/api/v1/document-types/upload-options", InsuranceIntelligence.Api.Documents.DocumentTypeCatalogEndpoints.ListUploadOptions)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.UploadDocument));
 app.MapGet("/api/v1/document-types", InsuranceIntelligence.Api.Documents.DocumentTypeCatalogEndpoints.ListCurrent)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageProducts));
 app.MapGet("/api/v1/document-types/{key}/versions", InsuranceIntelligence.Api.Documents.DocumentTypeCatalogEndpoints.ListVersions)
@@ -1458,6 +1859,9 @@ app.MapGet("/api/v1/agent-work-items/{workItemId:guid}", InsuranceIntelligence.A
 app.MapPost("/api/v1/agent-work-items/{workItemId:guid}/decision", InsuranceIntelligence.Api.AgentWorkflows.AgentWorkflowEndpoints.DecideWorkItem)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ReviewAgentWorkItems));
 // Initiative LP: Billing & entitlements, default package + real usage meters (ADR-0003).
+// The credit meter: anyone who can use the workspace sees credits used against the plan; cost is for billing viewers.
+app.MapGet("/api/v1/billing/credits", InsuranceIntelligence.Api.Admin.Billing.BillingEndpoints.GetCredits)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCommandCenter));
 app.MapGet("/api/v1/admin/billing", InsuranceIntelligence.Api.Admin.Billing.BillingEndpoints.GetSummary)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewBilling));
 // Plans, upgrades and payments (build-loop item 32): reading needs ViewBilling, changing needs ManageTenantSettings.
@@ -1507,6 +1911,8 @@ app.MapGet("/api/v1/compliance/cases/{caseId:guid}/audit-pack", ComplianceEndpoi
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAuditLog));
 app.MapPost("/api/v1/compliance/cases/{caseId:guid}/audit-pack/export", ComplianceEndpoints.ExportAuditPack)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ExportEvidencePack));
+app.MapPost("/api/v1/compliance/cases/{caseId:guid}/audit-pack/export/save", InsuranceIntelligence.Api.Compliance.EvidencePackSaveEndpoints.Save)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ExportEvidencePack));
 app.MapPost("/api/v1/compliance/cases/{caseId:guid}/claims-pack/send", InsuranceIntelligence.Api.Compliance.ClaimsPackEmailEndpoints.SendNow)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ExportEvidencePack));
 app.MapGet("/api/v1/compliance/cases/{caseId:guid}/claims-pack/history", InsuranceIntelligence.Api.Compliance.ClaimsPackEmailEndpoints.History)
@@ -1524,6 +1930,10 @@ app.MapGet("/api/v1/compliance/cases/{caseId:guid}/audit-pack/export/download", 
 app.MapGet("/api/v1/compliance/retention/policies", InsuranceIntelligence.Api.Compliance.RetentionEndpoints.ListPolicies)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
 app.MapPost("/api/v1/compliance/retention/policies", InsuranceIntelligence.Api.Compliance.RetentionEndpoints.SavePolicy)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapGet("/api/v1/compliance/legal-hold", InsuranceIntelligence.Api.Compliance.RetentionEndpoints.GetLegalHold)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapPut("/api/v1/compliance/legal-hold", InsuranceIntelligence.Api.Compliance.RetentionEndpoints.SetLegalHold)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
 app.MapPost("/api/v1/compliance/retention/enforce", InsuranceIntelligence.Api.Compliance.RetentionEndpoints.EnforceRetention)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
@@ -1572,6 +1982,26 @@ app.MapPost("/api/v1/admin/portal-identity/verify-hostname", InsuranceIntelligen
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
 app.MapPost("/api/v1/admin/portal-identity/sms-webhook", InsuranceIntelligence.Api.ClientPortal.PortalIdentityEndpoints.RotateSmsWebhook)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantSettings));
+app.MapPost("/api/v1/integrations/{channel}/test-send", InsuranceIntelligence.Api.Integrations.IntegrationTestSendEndpoints.Send)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapGet("/api/v1/connectors", InsuranceIntelligence.Api.Connectors.ConnectorEndpoints.List)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageKnowledgeBase));
+app.MapPost("/api/v1/connectors", InsuranceIntelligence.Api.Connectors.ConnectorEndpoints.Create)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageKnowledgeBase));
+app.MapPut("/api/v1/connectors/{connectorId:guid}/folders", InsuranceIntelligence.Api.Connectors.ConnectorEndpoints.ReplaceFolders)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageKnowledgeBase));
+app.MapPost("/api/v1/connectors/{connectorId:guid}/sync", InsuranceIntelligence.Api.Connectors.ConnectorEndpoints.SyncNow)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageKnowledgeBase));
+app.MapPost("/api/v1/connectors/{connectorId:guid}/pause", InsuranceIntelligence.Api.Connectors.ConnectorEndpoints.Pause)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageKnowledgeBase));
+app.MapPost("/api/v1/connectors/{connectorId:guid}/resume", InsuranceIntelligence.Api.Connectors.ConnectorEndpoints.Resume)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageKnowledgeBase));
+app.MapDelete("/api/v1/connectors/{connectorId:guid}", InsuranceIntelligence.Api.Connectors.ConnectorEndpoints.Delete)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageKnowledgeBase));
+app.MapGet("/api/v1/connectors/{connectorId:guid}/items", InsuranceIntelligence.Api.Connectors.ConnectorEndpoints.Items)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageKnowledgeBase));
+app.MapGet("/api/v1/integrations/catalogue", InsuranceIntelligence.Api.Integrations.IntegrationCatalogueEndpoints.Get)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapGet("/api/v1/integrations/whatsapp/health", WhatsAppIntegrationEndpoints.GetHealth)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations, Permission.ViewSalesLeads, Permission.ViewChannels));
 app.MapGet("/api/v1/integrations/whatsapp/configuration", WhatsAppConfigurationEndpoints.GetStatus)
@@ -1580,14 +2010,105 @@ app.MapPost("/api/v1/integrations/whatsapp/configuration", WhatsAppConfiguration
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapPost("/api/v1/integrations/whatsapp/configuration/test", WhatsAppConfigurationEndpoints.TestConfiguration)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapPost("/api/v1/integrations/whatsapp/configuration/meta-check", WhatsAppConfigurationEndpoints.CheckWithMeta)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapGet("/api/v1/integrations/whatsapp/onboarding", WhatsAppOnboardingEndpoints.GetMine)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapPost("/api/v1/integrations/whatsapp/onboarding", WhatsAppOnboardingEndpoints.Submit)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapDelete("/api/v1/integrations/whatsapp/onboarding", WhatsAppOnboardingEndpoints.CancelMine)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapGet("/api/v1/admin/whatsapp/onboarding", WhatsAppOnboardingEndpoints.SupportQueue)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantOnboarding));
+app.MapPost("/api/v1/admin/whatsapp/onboarding/{tenantId}/{workspaceId}/assign", WhatsAppOnboardingEndpoints.AssignNumber)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageTenantOnboarding));
+app.MapPost("/api/v1/integrations/whatsapp/onboarding/request-code", WhatsAppOnboardingEndpoints.RequestCode)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations)).RequireRateLimiting("mfa");
+app.MapPost("/api/v1/integrations/whatsapp/onboarding/verify-code", WhatsAppOnboardingEndpoints.VerifyCode)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations)).RequireRateLimiting("mfa");
+app.MapPost("/api/v1/integrations/whatsapp/onboarding/register", WhatsAppOnboardingEndpoints.RegisterNumber)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations)).RequireRateLimiting("mfa");
+app.MapGet("/api/v1/demo/scenarios", InsuranceIntelligence.Api.DemoScenarios.DemoScenarioEndpoints.List);
+app.MapPost("/api/v1/demo/scenarios/{scenarioId}/activate", InsuranceIntelligence.Api.DemoScenarios.DemoScenarioEndpoints.Activate);
+app.MapGet("/api/v1/templates", InsuranceIntelligence.Api.Templates.TemplateEndpoints.List)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageCustomerCommunications));
+app.MapPut("/api/v1/templates/{name}/{language}", InsuranceIntelligence.Api.Templates.TemplateEndpoints.SaveDraft)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapPost("/api/v1/templates/{name}/{language}/submit", InsuranceIntelligence.Api.Templates.TemplateEndpoints.Submit)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapPost("/api/v1/templates/{name}/{language}/decision", InsuranceIntelligence.Api.Templates.TemplateEndpoints.Decide)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapPost("/api/v1/templates/import", InsuranceIntelligence.Api.Templates.TemplateEndpoints.Import)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapGet("/api/v1/events/types", InsuranceIntelligence.Api.BankEvents.EventEndpoints.Types)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapGet("/api/v1/events", InsuranceIntelligence.Api.BankEvents.EventEndpoints.List)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPost("/api/v1/events", InsuranceIntelligence.Api.BankEvents.EventEndpoints.Record)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPost("/api/v1/events/import", InsuranceIntelligence.Api.BankEvents.EventEndpoints.Import)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapGet("/api/v1/rules", InsuranceIntelligence.Api.Rules.RuleEndpoints.Overview)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPost("/api/v1/rules", (InsuranceIntelligence.Api.Rules.RuleRequest request, InsuranceIntelligence.Application.Rules.RuleService rules, InsuranceIntelligence.Application.Core.IAuditWriter audit, InsuranceIntelligence.Infrastructure.Configuration.InfrastructureOptions options, HttpContext context, CancellationToken token) =>
+        InsuranceIntelligence.Api.Rules.RuleEndpoints.Save(null, request, rules, audit, options, context, token))
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPut("/api/v1/rules/{ruleId}", (string ruleId, InsuranceIntelligence.Api.Rules.RuleRequest request, InsuranceIntelligence.Application.Rules.RuleService rules, InsuranceIntelligence.Application.Core.IAuditWriter audit, InsuranceIntelligence.Infrastructure.Configuration.InfrastructureOptions options, HttpContext context, CancellationToken token) =>
+        InsuranceIntelligence.Api.Rules.RuleEndpoints.Save(ruleId, request, rules, audit, options, context, token))
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPost("/api/v1/rules/{ruleId}/approve", InsuranceIntelligence.Api.Rules.RuleEndpoints.Approve)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPost("/api/v1/rules/{ruleId}/pause", InsuranceIntelligence.Api.Rules.RuleEndpoints.Pause)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPost("/api/v1/rules/{ruleId}/resume", InsuranceIntelligence.Api.Rules.RuleEndpoints.Resume)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPut("/api/v1/rules-approval", InsuranceIntelligence.Api.Rules.RuleEndpoints.SaveApprovalSettings)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapPost("/api/v1/rules-run", InsuranceIntelligence.Api.Rules.RuleEndpoints.Run)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapGet("/api/v1/rule-outcomes", InsuranceIntelligence.Api.Rules.RuleEndpoints.Outcomes)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPost("/api/v1/rule-outcomes/{outcomeId}/done", InsuranceIntelligence.Api.Rules.RuleEndpoints.MarkDone)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapGet("/api/v1/demo/status", InsuranceIntelligence.Api.DemoScenarios.DemoCustomerEndpoints.Status)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapPost("/api/v1/demo/customers", InsuranceIntelligence.Api.DemoScenarios.DemoCustomerEndpoints.Add)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapGet("/api/v1/rule-timeline", InsuranceIntelligence.Api.DemoScenarios.DemoCustomerEndpoints.Timeline)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapGet("/api/v1/rule-campaigns", InsuranceIntelligence.Api.Rules.RuleEndpoints.Campaigns)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapGet("/api/v1/rule-conversions", InsuranceIntelligence.Api.Rules.RuleEndpoints.Conversions)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapGet("/api/v1/rule-decisions", InsuranceIntelligence.Api.Rules.RuleEndpoints.Decisions)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
+app.MapGet("/api/v1/workspace/brand", InsuranceIntelligence.Api.Workspaces.WorkspaceBrandEndpoints.Get)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapPut("/api/v1/workspace/brand", InsuranceIntelligence.Api.Workspaces.WorkspaceBrandEndpoints.Save)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapGet("/api/v1/integrations/whatsapp/receipts", WhatsAppIntegrationEndpoints.ListReceipts)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapDelete("/api/v1/integrations/whatsapp/configuration", WhatsAppConfigurationEndpoints.DeleteConfiguration)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapGet("/api/v1/integrations/whatsapp/messaging-mode", WhatsAppMessagingModeEndpoints.Get)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapPut("/api/v1/integrations/whatsapp/messaging-mode", WhatsAppMessagingModeEndpoints.Update)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapGet("/api/v1/admin/notification-routing", NotificationRoutingEndpoints.Get)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+app.MapPut("/api/v1/admin/notification-routing", NotificationRoutingEndpoints.Update)
+        .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapGet("/api/v1/integrations/whatsapp/configuration/elsewhere", WhatsAppNumberMoveEndpoints.ListElsewhere)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapPost("/api/v1/integrations/whatsapp/configuration/move-here", WhatsAppNumberMoveEndpoints.MoveHere)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
 app.MapGet("/api/v1/integrations/whatsapp/webhook", WhatsAppIntegrationEndpoints.VerifyWebhook);
-app.MapPost("/api/v1/integrations/whatsapp/webhook", WhatsAppIntegrationEndpoints.ReceiveWebhook);
+app.MapPost("/api/v1/integrations/whatsapp/webhook", WhatsAppIntegrationEndpoints.ReceiveWebhook).RequireRateLimiting("webhook");
+app.MapPost("/api/v1/integrations/telegram/bots/{botId}/webhook", TelegramIntegrationEndpoints.ReceiveWebhook);
+app.MapGet("/api/v1/integrations/meta/{channel}/{accountId}/webhook", MetaMessagingWebhookEndpoints.Verify);
+app.MapPost("/api/v1/integrations/meta/{channel}/{accountId}/webhook", MetaMessagingWebhookEndpoints.Receive);
+app.MapGet("/api/v1/integrations/x/{accountId}/webhook", XActivityWebhookEndpoints.Challenge);
+app.MapPost("/api/v1/integrations/x/{accountId}/webhook", XActivityWebhookEndpoints.Receive);
 
 // Generic connection settings surface (blueprint §3.4), the /app/admin/connections screen's
 // backend. {connectionType} is "sms", "email" or "translation"; adding a type is a new
@@ -1620,6 +2141,10 @@ app.MapPost("/api/v1/agents/{agentKey}/behaviour/test", InsuranceIntelligence.Ap
 app.MapGet("/api/v1/agents/customer-assistant/translation", InsuranceIntelligence.Api.Agents.TranslationStatusEndpoints.Get)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgents));
 app.MapPost("/api/v1/agents/customer-assistant/translation/test", InsuranceIntelligence.Api.Agents.TranslationStatusEndpoints.Test)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgents));
+app.MapGet("/api/v1/admin/assistant-languages", InsuranceIntelligence.Api.Agents.AssistantLanguageEndpoints.Get)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgents));
+app.MapPut("/api/v1/admin/assistant-languages", InsuranceIntelligence.Api.Agents.AssistantLanguageEndpoints.Update)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageAgents));
 
 // Tenant agent policy (blueprint §6.4, WO 3.4), real enforcement-source data, not a hardcoded array.
