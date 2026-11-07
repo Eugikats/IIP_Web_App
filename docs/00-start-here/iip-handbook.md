@@ -28,7 +28,7 @@ AI may summarise, classify, extract, flag, draft, route and recommend. It must n
 | For | Insurers, brokers and agents who sign up and start with no infrastructure | Larger regulated insurers who require data to stay in their own Azure subscription |
 | Runs | Otic-hosted Azure, many companies on one deployment | Packaged into the customer's subscription, one insurer per deployment |
 | Tenant model | Logical isolation: every request scoped by tenant and workspace on the server | Customer subscription is the outer boundary; tenant and workspace scoping still applies inside |
-| Sign-in | Self-serve sign-up, password sign-in, invitations; Microsoft Entra also supported | Microsoft Entra only (`INSURANCEINTELLIGENCE_AUTH_MODE=Entra`), single tenant |
+| Sign-in | Self-serve sign-up, password sign-in, invitations; Microsoft Entra also supported. A person who belongs to several organisations is asked to choose one (the API refuses to guess) | Microsoft Entra only (`INSURANCEINTELLIGENCE_AUTH_MODE=Entra`), single tenant |
 | Commercial | Plans, allowances, payments (MTN MoMo, Airtel Money, card), usage metering | Azure Marketplace packaging and publisher metering; no in-app plans |
 | Channels | Each company brings its own WhatsApp number, mailbox, optional hostname | The insurer configures its own providers once, in its own subscription |
 | SaaS-only modules | Academy, organisations, API keys, outbound webhooks, marketing pages, demo scenarios, platform MFA | Removed by the `managed-app` cut; a CI check keeps them out |
@@ -247,7 +247,7 @@ Never commit a secret. Outside local development, secrets come from Key Vault or
 | `Azure__KeyVaultUri`, `Azure__TenantId` | Key Vault and Entra tenant |
 | `NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_AUTH_MODE`, `NEXT_PUBLIC_TENANT_ID`, `NEXT_PUBLIC_WORKSPACE_ID`, `NEXT_PUBLIC_LOCAL_USER_ID` | Portal build-time values; the first two plus the Entra ones are baked into the build |
 | `NEXT_PUBLIC_ENTRA_TENANT_ID`, `..._CLIENT_ID`, `..._API_SCOPE`, `..._REDIRECT_URI` | Portal Entra sign-in |
-| `NEXT_PUBLIC_EXTERNAL_ID_AUTHORITY`, `..._CLIENT_ID`, `..._API_SCOPE` | Optional. Entra External ID for "Continue with Google" and "Sign in with email". Absent, the two buttons show but are disabled with a note (not configured on dev; needs an External ID app registration) |
+| `NEXT_PUBLIC_EXTERNAL_ID_AUTHORITY`, `..._CLIENT_ID`, `..._API_SCOPE` | Optional. Entra External ID for "Continue with Google" and "Sign in with email". Absent, the two buttons show but are disabled with a note (not configured on dev; needs an External ID app registration). The API needs `INSURANCEINTELLIGENCE_EXTERNAL_ID_AUTHORITY` and `..._CLIENT_ID` (optionally `..._AUDIENCE`) to accept those tokens next to work-account tokens |
 | `NEXT_PUBLIC_ENTRA_AUTHORITY_TENANT` | Optional. `organizations` lets work accounts from any company sign in |
 | `NEXT_PUBLIC_VISUAL_PARITY_MODE` | Development fixtures only; must be unset or `false` in every deployed build |
 

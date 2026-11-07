@@ -16,10 +16,10 @@ function unsignedJwt(claims: Record<string, unknown>): string {
   return `${base64Url(JSON.stringify({ alg: "none", typ: "JWT" }))}.${base64Url(JSON.stringify(claims))}.sig`;
 }
 
-export type StandIn = { apiCalls: string[]; authorizeVisits: number };
+export type StandIn = { apiCalls: string[]; authorizeVisits: number; organisationsAskedFor: string[] };
 
-export async function installStandIn(page: Page, options: { memberOfNoOrganisation?: boolean } = {}): Promise<StandIn> {
-  const seen: StandIn = { apiCalls: [], authorizeVisits: 0 };
+export async function installStandIn(page: Page, options: { memberOfNoOrganisation?: boolean; memberOfSeveralOrganisations?: boolean } = {}): Promise<StandIn> {
+  const seen: StandIn = { apiCalls: [], authorizeVisits: 0, organisationsAskedFor: [] };
   let nonce = "";
 
   await page.route(`${AUTHORITY}/v2.0/.well-known/openid-configuration`, (route) =>
@@ -80,7 +80,13 @@ export async function installStandIn(page: Page, options: { memberOfNoOrganisati
 
     const path = new URL(request.url()).pathname;
     seen.apiCalls.push(`${request.method()} ${path}`);
+    // A person who belongs to several organisations is refused until the request says which one, as the real API does.
+    const askedFor = request.headers()["x-organisation-id"];
+    if (path === "/api/v1/me" && options.memberOfSeveralOrganisations && !askedFor) {
+      return route.fulfill({ headers: cors, json: { title: "no single membership" }, status: 403 });
+    }
     if (path === "/api/v1/me") {
+      seen.organisationsAskedFor.push(askedFor ?? "");
       return route.fulfill({
         headers: cors,
         json: options.memberOfNoOrganisation
@@ -96,7 +102,17 @@ export async function installStandIn(page: Page, options: { memberOfNoOrganisati
       });
     }
 
-    if (path === "/api/v1/me/organisations") return route.fulfill({ headers: cors, json: [] });
+    if (path === "/api/v1/me/organisations") {
+      return route.fulfill({
+        headers: cors,
+        json: options.memberOfSeveralOrganisations
+          ? [
+              { organisationId: "org-bank", name: "Mavuno Bank", type: "Insurer", workspaceId: "workspace-bank", roles: ["Admin"], access: "Member" },
+              { organisationId: "org-home", name: "Otic Group", type: "Insurer", workspaceId: "workspace-home", roles: ["Admin"], access: "Member" },
+            ]
+          : [],
+      });
+    }
     if (path === "/api/v1/security/mfa/status") {
       return route.fulfill({ headers: cors, json: { policyRequired: false, enrolledMethods: [], shouldPrompt: false, mustVerify: false, offeredMethods: [], credentials: [] } });
     }

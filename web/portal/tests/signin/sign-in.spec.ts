@@ -52,3 +52,17 @@ test("The sign-in page shows the Microsoft and Google marks and tells the truth 
   await expect(google).toBeDisabled();
   await expect(page.getByText("Google and email sign-in are not set up for this environment.")).toBeVisible();
 });
+
+test("A person who belongs to several organisations is asked which to work in, and then gets in", async ({ page }) => {
+  const seen = await installStandIn(page, { memberOfSeveralOrganisations: true });
+
+  await page.goto("/login");
+  await page.getByRole("button", { name: /Continue with Microsoft/ }).click();
+
+  await expect(page.getByRole("heading", { name: "Choose an organisation" })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("Workspace access unavailable")).toHaveCount(0);
+  await page.getByRole("button", { name: /Mavuno Bank/ }).click();
+
+  await expect(page.getByRole("button", { name: "Settings", exact: true }).first()).toBeVisible({ timeout: 30_000 });
+  expect(seen.organisationsAskedFor).toContain("org-bank");
+});

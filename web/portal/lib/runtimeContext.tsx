@@ -36,6 +36,15 @@ export type RuntimeContextView = {
   availableWorkspaces: WorkspaceView[];
 };
 
+/** One place a signed-in person belongs (an organisation and the workspace they hold in it), from GET /api/v1/me/organisations. */
+export type OrganisationChoice = {
+  organisationId: string;
+  name: string;
+  workspaceId: string;
+  roles: string[];
+  access: string;
+};
+
 type RuntimeContextState = {
   runtimeContext: RuntimeContextView | null;
   environment: EnvironmentView | null;
@@ -43,7 +52,37 @@ type RuntimeContextState = {
   error: UiServiceError | null;
   parityMode: boolean;
   refresh: () => Promise<void>;
+  /** Set when the account belongs to more than one organisation and has not said which to work in. */
+  organisationChoices: OrganisationChoice[];
+  chooseOrganisation: (choice: OrganisationChoice) => Promise<void>;
 };
+
+type OrganisationDto = {
+  organisationId?: string;
+  name?: string;
+  workspaceId?: string;
+  roles?: string[];
+  access?: string;
+};
+
+/** The places this account belongs. The API confirms the choice against real membership on every request, so this only lists. */
+async function loadOrganisationChoices(token: string): Promise<OrganisationChoice[]> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/v1/me/organisations`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!response.ok) return [];
+    return ((await response.json()) as OrganisationDto[])
+      .filter((item) => item.organisationId && item.workspaceId)
+      .map((item) => ({
+        organisationId: item.organisationId!,
+        name: item.name || item.organisationId!,
+        workspaceId: item.workspaceId!,
+        roles: item.roles ?? [],
+        access: item.access || "Member",
+      }));
+  } catch {
+    return [];
+  }
+}
 
 type MeDto = {
   userId?: string;
@@ -165,6 +204,7 @@ export function RuntimeContextProvider({ children }: { children: ReactNode }) {
   );
   const [loading, setLoading] = useState(!LOVABLE_VISUAL_PARITY_MODE);
   const [error, setError] = useState<UiServiceError | null>(null);
+  const [organisationChoices, setOrganisationChoices] = useState<OrganisationChoice[]>([]);
 
   const refresh = useCallback(async () => {
     if (LOVABLE_VISUAL_PARITY_MODE) {
@@ -176,6 +216,7 @@ export function RuntimeContextProvider({ children }: { children: ReactNode }) {
 
     setLoading(true);
     setError(null);
+    setOrganisationChoices([]);
     try {
       const token = await getEntraApiAccessToken();
       const load = () =>
@@ -192,6 +233,17 @@ export function RuntimeContextProvider({ children }: { children: ReactNode }) {
       if (response.status === 403 && !canUseLocalTestDoubles && (getActiveOrganisationOverride() || getActiveWorkspaceOverride())) {
         setActiveOrganisationOverride(null, null);
         response = await load();
+      }
+      // The account belongs to more than one organisation (or workspace) and nothing says which to work in. The API will
+      // not guess, so ask the person; if there is only one place, go straight in.
+      if (response.status === 403 && !canUseLocalTestDoubles && token) {
+        const choices = await loadOrganisationChoices(token);
+        if (choices.length === 1) {
+          setActiveOrganisationOverride(choices[0].organisationId, choices[0].workspaceId);
+          response = await load();
+        } else if (choices.length > 1) {
+          setOrganisationChoices(choices);
+        }
       }
       if (!response.ok) {
         throw await UiServiceError.fromResponse(response, `Workspace access is unavailable.`);
@@ -215,6 +267,14 @@ export function RuntimeContextProvider({ children }: { children: ReactNode }) {
     void refresh();
   }, [refresh]);
 
+  const chooseOrganisation = useCallback(
+    async (choice: OrganisationChoice) => {
+      setActiveOrganisationOverride(choice.organisationId, choice.workspaceId);
+      await refresh();
+    },
+    [refresh],
+  );
+
   const value = useMemo<RuntimeContextState>(
     () => ({
       runtimeContext,
@@ -223,8 +283,10 @@ export function RuntimeContextProvider({ children }: { children: ReactNode }) {
       error,
       parityMode: LOVABLE_VISUAL_PARITY_MODE,
       refresh,
+      organisationChoices,
+      chooseOrganisation,
     }),
-    [error, loading, refresh, runtimeContext],
+    [chooseOrganisation, error, loading, organisationChoices, refresh, runtimeContext],
   );
 
   return <RuntimeContext.Provider value={value}>{children}</RuntimeContext.Provider>;

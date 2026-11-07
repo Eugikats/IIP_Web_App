@@ -30,13 +30,13 @@ function ContextualPanel({ children }: { children?: ReactNode }) {
 
 function ShellInner({ children }: { children: ReactNode }) {
   const { copilotOpen, toggleCopilot, roleDef } = useUI();
-  const { runtimeContext, loading, error, parityMode, refresh } = useRuntimeContext();
+  const { runtimeContext, loading, error, parityMode, refresh, organisationChoices, chooseOrganisation } = useRuntimeContext();
   const loc = useLocation();
   const [checkingSignUp, setCheckingSignUp] = useState(false);
 
   // Signed in, but not a member of any organisation: a new person. Send them to set one up instead of
   // showing "access unavailable". Anyone who does belong somewhere sees the access message as before.
-  const noWorkspace = !canUseLocalTestDoubles && !parityMode && !loading && !runtimeContext && Boolean(error);
+  const noWorkspace = !canUseLocalTestDoubles && !parityMode && !loading && !runtimeContext && Boolean(error) && organisationChoices.length === 0;
   useEffect(() => {
     if (!noWorkspace) return;
     let cancelled = false;
@@ -66,6 +66,35 @@ function ShellInner({ children }: { children: ReactNode }) {
         <div className="flex items-center gap-3 text-sm text-dls-text-secondary">
           <Loader2 className="h-5 w-5 animate-spin text-dls-primary" />
           Verifying your access
+        </div>
+      </main>
+    );
+  }
+
+  if (!canUseLocalTestDoubles && !parityMode && !runtimeContext && organisationChoices.length > 1) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-dls-surface px-6 text-dls-text-primary">
+        <div className="w-full max-w-md border-y border-dls-border-subtle py-8">
+          <h1 className="text-xl font-bold">Choose an organisation</h1>
+          <p className="mt-2 text-sm leading-6 text-dls-text-secondary">
+            Your account belongs to more than one. Pick the one to work in. You can switch later.
+          </p>
+          <ul className="mt-6 space-y-2">
+            {organisationChoices.map((choice) => (
+              <li key={`${choice.organisationId}/${choice.workspaceId}`}>
+                <button
+                  type="button"
+                  onClick={() => void chooseOrganisation(choice)}
+                  className="w-full rounded-dls-control border border-dls-border-input px-4 py-3 text-left hover:bg-dls-bg-page dls-focus-outline"
+                >
+                  <span className="block text-sm font-semibold text-dls-text-primary">{choice.name}</span>
+                  <span className="mt-0.5 block text-xs text-dls-text-secondary">
+                    {[choice.access, choice.roles.join(", ")].filter(Boolean).join(" · ")}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       </main>
     );
