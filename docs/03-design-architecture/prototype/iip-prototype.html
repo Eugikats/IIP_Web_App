@@ -1,0 +1,830 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>IIP prototype</title>
+<!-- Optional: Inter loads if you are online; the page works offline with system fonts. -->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --bg:#F6F7F9; --surface:#fff; --surface-2:#FAFBFC; --border:#E4E7EC; --border-strong:#D0D5DD;
+  --text:#101828; --text-2:#475467; --muted:#98A2B3;
+  --primary:#1769FF; --primary-soft:#EAF1FF; --primary-ink:#0B4FCC;
+  --ok:#12B76A; --warn:#F79009; --bad:#D92D20; --info:#1769FF;
+  --r-control:8px; --r-card:12px; --r-pill:999px;
+  --rail:64px; --rail-open:232px;
+  --font:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+input,select,textarea{font:inherit;color:inherit}
+a{color:var(--primary);text-decoration:none}
+svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+svg.i.sm{width:14px;height:14px}
+svg.i.lg{width:22px;height:22px}
+.sr{position:absolute;left:-9999px}
+
+/* prototype bar */
+#protobar{position:sticky;top:0;z-index:60;display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:7px 14px;background:#101828;color:#D0D5DD;font-size:12px}
+#protobar b{color:#fff;font-weight:600}
+#protobar select,#protobar button{background:#1D2939;color:#fff;border:1px solid #344054;border-radius:6px;padding:3px 8px;font-size:12px}
+#protobar label{display:flex;gap:6px;align-items:center}
+#protobar .grow{flex:1}
+#protobar .legend span{margin-left:8px}
+
+/* shell */
+.shell{display:flex;height:calc(100vh - 36px);min-height:560px}
+.rail{width:var(--rail);flex:none;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:10px 12px;gap:4px;overflow-y:auto;transition:width .12s}
+.rail.open{width:var(--rail-open)}
+.rail .logo{display:flex;align-items:center;gap:10px;height:40px;margin-bottom:6px;font-weight:700;letter-spacing:-.01em}
+.rail .logo .mark{width:34px;height:34px;border-radius:9px;background:var(--primary);color:#fff;display:grid;place-items:center;font-size:13px;font-weight:700;flex:none}
+.rail .grp{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700;margin:12px 6px 2px;display:none}
+.rail.open .grp{display:block}
+.rail .sep{height:1px;background:var(--border);margin:8px 4px}
+.rail.open .sep{display:none}
+.nav{display:flex;align-items:center;gap:10px;height:40px;width:40px;justify-content:center;border:0;background:transparent;border-radius:var(--r-control);color:var(--text-2);flex:none}
+.rail.open .nav{width:100%;justify-content:flex-start;padding:0 10px}
+.nav span{display:none;font-weight:600;font-size:13px;white-space:nowrap}
+.rail.open .nav span{display:inline}
+.nav:hover{background:var(--bg)}
+.nav.active{background:var(--primary-soft);color:var(--primary)}
+.nav:focus-visible,button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.rail .spacer{flex:1}
+.avatar{width:34px;height:34px;border-radius:50%;background:var(--primary-soft);color:var(--primary-ink);display:grid;place-items:center;font-weight:700;font-size:12px;border:0;flex:none}
+.avatar.lg{width:56px;height:56px;font-size:18px}
+.avatar.sm{width:28px;height:28px;font-size:11px}
+.avatar.gray{background:#EEF0F3;color:var(--text-2)}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column;position:relative}
+.topbar{display:flex;align-items:center;gap:12px;height:56px;padding:0 24px;background:var(--surface);border-bottom:1px solid var(--border);flex:none}
+.topbar .crumb{color:var(--muted);font-size:13px}
+.topbar .sp{flex:1}
+.envpill{font-size:12px;color:var(--text-2);border:1px solid var(--border);border-radius:var(--r-pill);padding:3px 10px;background:var(--surface-2)}
+.content{flex:1;overflow-y:auto;padding:24px 24px 110px}
+.col{max-width:1120px}
+.col.wide{max-width:1280px}
+.head{display:flex;align-items:flex-start;gap:16px;margin-bottom:18px;flex-wrap:wrap}
+.head h1{margin:0;font-size:22px;letter-spacing:-.015em;font-weight:650}
+.head p{margin:3px 0 0;color:var(--text-2);max-width:720px}
+.head .acts{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:6px}
+
+/* chat bar */
+.chatbar{position:absolute;left:0;right:0;bottom:0;padding:12px 24px 16px;background:var(--bg);border-top:1px solid var(--border);pointer-events:none}
+.chatbar .inner{pointer-events:auto;max-width:760px;margin:0 auto;display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--r-pill);padding:8px 8px 8px 16px}
+.chatbar input{flex:1;border:0;outline:0;background:transparent;min-width:0}
+.orb{width:22px;height:22px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#8FB8FF,#1769FF 60%,#0B4FCC);flex:none}
+
+/* controls */
+.btn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--border-strong);background:var(--surface);border-radius:var(--r-control);padding:7px 13px;font-weight:600;font-size:13px;white-space:nowrap}
+.btn:hover{background:var(--bg)}
+.btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+.btn.primary:hover{background:var(--primary-ink)}
+.btn.danger{color:var(--bad);border-color:#F3C1BC}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--primary)}
+.btn.sm{padding:4px 9px;font-size:12px}
+.btn[disabled],.btn.off{opacity:.5;cursor:not-allowed}
+.icon-btn{width:34px;height:34px;border:1px solid transparent;background:transparent;border-radius:var(--r-control);display:grid;place-items:center;color:var(--text-2)}
+.icon-btn:hover{background:var(--bg)}
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
+.field label{font-weight:600;font-size:13px}
+.field .hint{color:var(--muted);font-size:12px}
+.in,.sel,.ta{border:1px solid var(--border-strong);background:var(--surface);border-radius:var(--r-control);padding:8px 11px;min-width:0;width:100%}
+.in.ro{background:var(--surface-2);color:var(--text-2)}
+.ta{min-height:84px;resize:vertical}
+.row{display:flex;gap:14px;flex-wrap:wrap}
+.row>*{flex:1;min-width:200px}
+.search{display:flex;align-items:center;gap:8px;border:1px solid var(--border-strong);background:var(--surface);border-radius:var(--r-control);padding:0 11px;height:36px;flex:1;min-width:200px}
+.search input{border:0;outline:0;flex:1;background:transparent;min-width:0}
+.toggle{width:38px;height:22px;border-radius:var(--r-pill);background:var(--border-strong);border:0;position:relative;flex:none;padding:0}
+.toggle:after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .12s}
+.toggle.on{background:var(--primary)}
+.toggle.on:after{left:18px}
+
+/* surfaces */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-card);padding:18px;margin-bottom:16px}
+.card.flush{padding:0;overflow:hidden}
+.card h2,.card h3{margin:0 0 4px;font-size:15px;font-weight:650}
+.card .sub{color:var(--text-2);font-size:13px;margin-bottom:12px}
+.card .ch{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border)}
+.card .ch h3{margin:0}
+.card .cb{padding:18px}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.g5{grid-template-columns:repeat(5,minmax(0,1fr))}
+.split{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}
+@media(max-width:900px){.g3,.g4,.g5{grid-template-columns:repeat(2,minmax(0,1fr))}.split{grid-template-columns:1fr}.g2{grid-template-columns:1fr}}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-card);padding:14px 16px}
+.kpi .l{color:var(--text-2);font-size:12.5px}
+.kpi .v{font-size:26px;font-weight:650;letter-spacing:-.02em;margin-top:4px}
+.kpi .d{font-size:12px;color:var(--muted);margin-top:2px}
+.list{list-style:none;margin:0;padding:0}
+.list li{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--border)}
+.list li:last-child{border-bottom:0}
+.list .grow{flex:1;min-width:0}
+.list .t{font-weight:600}
+.list .s{color:var(--text-2);font-size:12.5px}
+.clickable{cursor:pointer}
+.clickable:hover{background:var(--surface-2)}
+table.t{width:100%;border-collapse:collapse;font-size:13px}
+table.t th{text-align:left;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--surface-2);white-space:nowrap}
+table.t td{padding:12px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+table.t tr:last-child td{border-bottom:0}
+table.t tbody tr.clickable:hover{background:var(--surface-2)}
+.scroll-x{overflow-x:auto}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:16px;overflow-x:auto}
+.tabs button{border:0;background:transparent;padding:9px 12px;font-weight:600;color:var(--text-2);border-bottom:2px solid transparent;white-space:nowrap}
+.tabs button.on{color:var(--primary);border-bottom-color:var(--primary)}
+.seg{display:inline-flex;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-control);padding:3px;gap:2px}
+.seg button{border:0;background:transparent;padding:5px 12px;border-radius:6px;font-weight:600;color:var(--text-2)}
+.seg button.on{background:var(--surface);color:var(--text);border:1px solid var(--border)}
+
+/* status: neutral pill + 6px dot + word */
+.pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--surface-2);border-radius:var(--r-pill);padding:2px 9px;font-size:12px;font-weight:600;color:var(--text);white-space:nowrap}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--muted);display:inline-block}
+.dot.ok{background:var(--ok)}.dot.warn{background:var(--warn)}.dot.bad{background:var(--bad)}.dot.info{background:var(--info)}
+/* tinted pills: only the Acquisition dashboard and the Inbox, which are ported from CIP */
+.pill.t-blue{background:#E8F0FF;border-color:#D4E2FF;color:#0B4FCC}
+.pill.t-green{background:#E6F6EE;border-color:#CDEBDB;color:#067647}
+.pill.t-amber{background:#FEF3E0;border-color:#FBE2B8;color:#B54708}
+.pill.t-gray{background:#F2F4F7;border-color:#E4E7EC;color:#475467}
+.pill.t-red{background:#FDECEA;border-color:#F8CFCB;color:#B42318}
+.tag{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:4px;padding:2px 6px;margin-left:8px;vertical-align:middle}
+.tag.iip{background:#EEF0F3;color:#475467}.tag.cip{background:#E8F0FF;color:#0B4FCC}.tag.new{background:#FEF3E0;color:#B54708}
+body.noann .tag,body.noann .annot{display:none}
+body.noprop .proposed{display:none}
+.annot{font-size:12px;color:var(--muted);margin:-8px 0 14px}
+
+/* AI vs human separation */
+.ai{border:1px solid var(--border);border-left:3px solid var(--primary);background:var(--surface);border-radius:var(--r-card);padding:16px 18px;margin-bottom:16px}
+.ai .lab{font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;color:var(--primary);display:flex;gap:6px;align-items:center;margin-bottom:8px}
+.cite{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:18px;padding:0 5px;border:1px solid var(--border-strong);border-radius:5px;font-size:11px;font-weight:700;color:var(--primary);background:var(--surface);margin:0 2px;vertical-align:1px}
+.decision{border:1px solid var(--border-strong);background:var(--surface-2);border-radius:var(--r-card);padding:16px 18px;margin-bottom:16px}
+.decision .lab{font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;color:var(--text-2);margin-bottom:8px}
+.note{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--border);background:var(--surface-2);border-radius:var(--r-control);padding:10px 12px;color:var(--text-2);font-size:13px;margin-bottom:14px}
+.note.warn{border-color:#FBE2B8;background:#FFFAEB}
+.bar{height:8px;border-radius:4px;background:var(--bg);overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--primary)}
+.stage{display:flex;gap:0;margin-bottom:16px;flex-wrap:wrap}
+.stage div{flex:1;min-width:110px;padding:10px 12px;border:1px solid var(--border);background:var(--surface);font-size:12.5px;font-weight:600;color:var(--text-2)}
+.stage div+div{border-left:0}
+.stage div.done{color:var(--text)}
+.stage div.cur{background:var(--primary-soft);color:var(--primary);border-color:#C9DBFF}
+.chart{display:flex;align-items:flex-end;gap:10px;height:170px;padding:8px 4px 0}
+.chart .b{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;height:100%}
+.chart .b i{width:100%;max-width:46px;border-radius:5px 5px 0 0;background:linear-gradient(180deg,#8FB8FF,#1769FF)}
+.chart .b span{font-size:11px;color:var(--text-2);text-align:center}
+.spark{height:34px;width:100%}
+
+/* states */
+.statebox{border:1px dashed var(--border-strong);border-radius:var(--r-card);padding:44px 20px;text-align:center;background:var(--surface)}
+.statebox h3{margin:10px 0 4px;font-size:16px}
+.statebox p{margin:0 auto 14px;color:var(--text-2);max-width:460px}
+.skel{height:14px;border-radius:5px;background:#EEF0F3;margin:10px 0}
+
+/* settings modal and popovers */
+.scrim{position:fixed;inset:36px 0 0 0;background:rgba(16,24,40,.45);z-index:40;display:grid;place-items:center;padding:24px}
+.modal{background:var(--surface);border-radius:16px;width:min(1040px,100%);height:min(720px,100%);display:flex;overflow:hidden;border:1px solid var(--border)}
+.modal .side{width:248px;flex:none;border-right:1px solid var(--border);padding:16px 12px;overflow-y:auto;background:var(--surface-2)}
+.modal .side h2{font-size:15px;margin:2px 8px 12px;display:flex;gap:8px;align-items:center}
+.modal .side button{display:flex;align-items:center;gap:10px;width:100%;border:0;background:transparent;text-align:left;padding:9px 10px;border-radius:var(--r-control);font-weight:600;color:var(--text-2)}
+.modal .side button.on{background:var(--primary-soft);color:var(--primary)}
+.modal .side button:hover:not(.on){background:var(--bg)}
+.modal .body{flex:1;min-width:0;display:flex;flex-direction:column}
+.modal .mh{display:flex;align-items:flex-start;gap:12px;padding:20px 24px 12px}
+.modal .mh h2{margin:0;font-size:20px}
+.modal .mh p{margin:3px 0 0;color:var(--text-2)}
+.modal .mb{flex:1;overflow-y:auto;padding:4px 24px 24px}
+@media(max-width:760px){.modal{flex-direction:column}.modal .side{width:auto;border-right:0;border-bottom:1px solid var(--border);display:flex;overflow-x:auto;padding:8px}.modal .side h2{display:none}.modal .side button{width:auto;white-space:nowrap}}
+.menu{position:fixed;left:70px;bottom:16px;width:280px;max-height:calc(100vh - 80px);overflow-y:auto;background:var(--surface);border:1px solid var(--border-strong);border-radius:12px;box-shadow:0 12px 32px rgba(16,24,40,.14);z-index:50;padding:8px}
+.menu .gl{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700;padding:8px 10px 4px}
+.menu button{display:flex;gap:10px;align-items:center;width:100%;border:0;background:transparent;padding:8px 10px;border-radius:8px;text-align:left;font-weight:600;color:var(--text-2)}
+.menu button:hover{background:var(--bg)}
+.menu hr{border:0;border-top:1px solid var(--border);margin:6px 0}
+.drawer{position:fixed;right:0;top:36px;bottom:0;width:min(420px,100%);background:var(--surface);border-left:1px solid var(--border-strong);z-index:45;display:flex;flex-direction:column;box-shadow:-12px 0 32px rgba(16,24,40,.08)}
+.drawer .dh{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border)}
+.drawer .db{flex:1;overflow-y:auto;padding:16px}
+.drawer .df{padding:12px;border-top:1px solid var(--border);display:flex;gap:8px}
+.msg{max-width:86%;margin-bottom:12px;padding:10px 12px;border-radius:12px;border:1px solid var(--border);background:var(--surface-2)}
+.msg.me{margin-left:auto;background:var(--primary-soft);border-color:#C9DBFF}
+.msg.in{background:#fff}
+.msg .meta{font-size:11px;color:var(--muted);margin-top:4px}
+.proposal{border:1px solid var(--border-strong);border-radius:10px;background:#fff;padding:12px;margin-top:8px}
+.proposal .pl{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-2);font-weight:700;margin-bottom:6px}
+.inbox{display:grid;grid-template-columns:300px minmax(0,1fr) 300px;gap:0;border:1px solid var(--border);border-radius:var(--r-card);background:var(--surface);overflow:hidden;height:600px}
+.inbox>div{overflow-y:auto}
+.inbox .cl{border-right:1px solid var(--border)}
+.inbox .ci{border-left:1px solid var(--border)}
+.conv{display:flex;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer}
+.conv:hover,.conv.on{background:var(--primary-soft)}
+.bubble{max-width:78%;padding:10px 13px;border-radius:14px;margin:6px 0;border:1px solid var(--border);background:#fff}
+.bubble.out{margin-left:auto;background:var(--primary-soft);border-color:#C9DBFF}
+.bubble .who{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:3px}
+@media(max-width:900px){.inbox{grid-template-columns:1fr;height:auto}.inbox .ci{border-left:0;border-top:1px solid var(--border)}}
+.kv{display:grid;grid-template-columns:150px 1fr;gap:8px 14px;font-size:13px}
+.kv dt{color:var(--text-2)}.kv dd{margin:0;font-weight:600}
+.steps{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap}
+.steps div{flex:1;min-width:120px;font-size:12px;font-weight:600;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text-2)}
+.steps div.cur{border-color:#C9DBFF;background:var(--primary-soft);color:var(--primary)}
+.steps div.done{color:var(--text)}
+.check{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--border)}
+.check:last-child{border-bottom:0}
+.check .box{width:18px;height:18px;border-radius:5px;border:1px solid var(--border-strong);display:grid;place-items:center;flex:none;margin-top:1px;background:#fff}
+.check .box.on{background:var(--primary);border-color:var(--primary);color:#fff}
+.login{min-height:calc(100vh - 36px);display:grid;place-items:center;background:var(--surface);padding:24px}
+.login .box{width:min(400px,100%);border:1px solid var(--border);border-radius:16px;padding:28px}
+.login .ms{width:100%;justify-content:center;background:#0B1B3A;color:#fff;border-color:#0B1B3A;padding:11px}
+.login .gg{width:100%;justify-content:center;padding:11px;margin-top:10px}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px}
+.right{text-align:right}
+.mt{margin-top:14px}.mb0{margin-bottom:0}
+.muted{color:var(--text-2)}.faint{color:var(--muted)}
+.hide{display:none!important}
+
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/* =====================================================================
+   IIP prototype: core. Plain JS, no build step, no network needed.
+   Edit the screens in part 3 and 4 (search for "R.", one entry per screen).
+   ===================================================================== */
+const ICONS = {
+  home:"M3 11l9-8 9 8M5 10v10h14V10M9 20v-6h6v6",
+  claims:"M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8zM14 3v5h5M10 14a2 2 0 104 0 2 2 0 00-4 0M13.5 15.5L16 18",
+  building:"M4 21V4a1 1 0 011-1h9a1 1 0 011 1v17M15 9h4a1 1 0 011 1v11M3 21h18M8 7h3M8 11h3M8 15h3",
+  sparkles:"M12 3l1.8 4.7L18.5 9.5 13.8 11.3 12 16l-1.8-4.7L5.5 9.5l4.7-1.8zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z",
+  inbox:"M22 12h-6l-2 3h-4l-2-3H2M5.5 5h13l3.5 7v6a2 2 0 01-2 2h-16a2 2 0 01-2-2v-6z",
+  cap:"M2 9l10-5 10 5-10 5zM6 11v5c0 1.5 3 3 6 3s6-1.5 6-3v-5M22 9v6",
+  book:"M4 19.5A2.5 2.5 0 016.5 17H20V3H6.5A2.5 2.5 0 004 5.5zM4 19.5V21h16",
+  message:"M21 15a2 2 0 01-2 2H8l-5 4V5a2 2 0 012-2h14a2 2 0 012 2z",
+  tasks:"M10 6h11M10 12h11M10 18h11M3 6l1.5 1.5L7 5M3 12l1.5 1.5L7 11M3 18l1.5 1.5L7 17",
+  users:"M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM22 21v-2a4 4 0 00-3-3.9M16 3.1a4 4 0 010 7.8",
+  mail:"M3 6h18v12H3zM3 7l9 6 9-6",
+  refresh:"M21 12a9 9 0 01-15.5 6.2L3 16M3 12a9 9 0 0115.5-6.2L21 8M21 3v5h-5M3 21v-5h5",
+  file:"M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8zM14 3v5h5M9 13h6M9 17h6",
+  shield:"M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z",
+  shieldalert:"M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM12 8v5M12 16.5v.5",
+  shieldcheck:"M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM9 12l2 2 4-4",
+  gavel:"M14 4l6 6M12 6l6 6-4 4-6-6zM3 21l7-7M8 3l-3 3 4 4",
+  branch:"M6 3v12M18 9a3 3 0 100-6 3 3 0 000 6zM6 21a3 3 0 100-6 3 3 0 000 6zM18 9a9 9 0 01-9 9",
+  chart:"M3 3v18h18M7 15l4-4 3 3 5-6",
+  plug:"M9 2v6M15 2v6M6 8h12v4a6 6 0 01-12 0zM12 18v4",
+  settings:"M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 01-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 010-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 014 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 010 4h-.1a1.7 1.7 0 00-1.5 1z",
+  search:"M11 19a8 8 0 100-16 8 8 0 000 16zM21 21l-4.3-4.3",
+  bell:"M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0",
+  user:"M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z",
+  card:"M2 6h20v12H2zM2 10h20",
+  key:"M21 2l-2 2m-7.8 7.8a5.5 5.5 0 11-7.8 7.8 5.5 5.5 0 017.8-7.8zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4",
+  package:"M21 8l-9-5-9 5v8l9 5 9-5zM3.3 7.5L12 12l8.7-4.5M12 22V12",
+  bot:"M12 8V4H8M4 8h16v10a2 2 0 01-2 2H6a2 2 0 01-2-2zM2 14h2M20 14h2M9 13v2M15 13v2",
+  drive:"M22 12H2M5.5 5h13l3.5 7v6a2 2 0 01-2 2H4a2 2 0 01-2-2v-6zM6 16h.01M10 16h.01",
+  bars:"M6 20V10M12 20V4M18 20v-6",
+  clip:"M21 11l-9 9a5 5 0 01-7-7l9-9a3.5 3.5 0 015 5l-9 9a2 2 0 01-3-3l8-8",
+  up:"M12 19V5M5 12l7-7 7 7",
+  plus:"M12 5v14M5 12h14",
+  x:"M18 6L6 18M6 6l12 12",
+  right:"M9 18l6-6-6-6",
+  down:"M6 9l6 6 6-6",
+  check:"M20 6L9 17l-5-5",
+  ext:"M18 13v6a2 2 0 01-2 2H5V8h6M15 3h6v6M10 14L21 3",
+  download:"M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3",
+  upload:"M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12",
+  trash:"M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6",
+  filter:"M22 3H2l8 9.5V19l4 2v-8.5z",
+  panel:"M3 4h18v16H3zM9 4v16",
+  logout:"M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9",
+  alert:"M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z",
+  clock:"M12 22a10 10 0 100-20 10 10 0 000 20zM12 6v6l4 2",
+  phone:"M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3.1 19.5 19.5 0 01-6-6A19.8 19.8 0 012.1 4.2 2 2 0 014.1 2h3a2 2 0 012 1.7c.1 1 .4 1.9.7 2.8a2 2 0 01-.5 2.1L8 9.9a16 16 0 006 6l1.3-1.3a2 2 0 012.1-.4c.9.3 1.8.6 2.8.7a2 2 0 011.7 2z",
+  edit:"M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z",
+  lock:"M5 11h14v10H5zM8 11V7a4 4 0 118 0v4",
+  link:"M10 13a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1M14 11a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1",
+  receipt:"M4 2v20l3-2 3 2 3-2 3 2 3-2V2zM8 7h8M8 11h8M8 15h5",
+  dollar:"M12 2v20M17 6H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6",
+  calendar:"M3 5h18v16H3zM3 10h18M8 3v4M16 3v4",
+  moon:"M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z",
+  zap:"M13 2L3 14h8l-1 8 10-12h-8z",
+  globe:"M12 22a10 10 0 100-20 10 10 0 000 20zM2 12h20M12 2a15 15 0 010 20 15 15 0 010-20z",
+  eye:"M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12zM12 15a3 3 0 100-6 3 3 0 000 6z",
+  flag:"M4 22V4M4 4h13l-2 4 2 4H4",
+  folder:"M3 6a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2z"
+};
+const ic = (n, c = "") => `<svg class="i ${c}" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[n] || ICONS.file}"/></svg>`;
+
+/* ---------- state ---------- */
+const S = { route: "brief", params: {}, rail: false, menu: false, settings: null, chat: false, state: "normal", tabs: {}, flags: {}, inboxSel: 0, role: "admin", chatLog: [] };
+const R = {};            // screen registry: R[route] = {title, sub, src, group, acts, render}
+const SET = {};          // settings modal sections
+const $ = (s, el = document) => el.querySelector(s);
+
+/* ---------- small building blocks ---------- */
+const pill = (txt, tone = "", tint = "") => `<span class="pill ${tint}">${tone ? `<i class="dot ${tone}"></i>` : ""}${txt}</span>`;
+const tag = (kind) => `<span class="tag ${kind}">${{ iip: "In IIP now", cip: "From CIP", new: "Proposed" }[kind]}</span>`;
+const btn = (label, o = {}) => `<button class="btn ${o.kind || ""} ${o.cls || ""}" ${o.go ? `data-go="${o.go}"` : ""} ${o.act ? `data-act="${o.act}"` : ""} ${o.set ? `data-settings="${o.set}"` : ""}>${o.icon ? ic(o.icon, "sm") : ""}${label}</button>`;
+const card = (title, body, o = {}) => `<section class="card ${o.cls || ""}">${title ? `<div class="${o.flush ? "ch" : ""}"><h3>${title}</h3>${o.sub ? `<div class="sub mb0">${o.sub}</div>` : ""}</div>` : ""}${o.flush ? body : body}</section>`;
+const kpi = (l, v, d = "") => `<div class="kpi"><div class="l">${l}</div><div class="v">${v}</div>${d ? `<div class="d">${d}</div>` : ""}</div>`;
+const field = (label, val = "", o = {}) => `<div class="field"><label>${label}</label>${o.type === "select" ? `<select class="sel">${(o.options || []).map(x => `<option ${x === val ? "selected" : ""}>${x}</option>`).join("")}</select>` : o.type === "area" ? `<textarea class="ta">${val}</textarea>` : `<input class="in ${o.ro ? "ro" : ""}" value="${val}" ${o.ro ? "readonly" : ""} placeholder="${o.ph || ""}">`}${o.hint ? `<div class="hint">${o.hint}</div>` : ""}</div>`;
+const toggle = (key, on) => `<button class="toggle ${(S.flags[key] ?? on) ? "on" : ""}" data-toggle="${key}" data-on="${on ? 1 : 0}" role="switch" aria-checked="${(S.flags[key] ?? on)}" aria-label="${key}"></button>`;
+const tabs = (group, items, def) => { const cur = S.tabs[group] || def || items[0][0]; return { cur, html: `<div class="tabs" role="tablist">${items.map(([k, l]) => `<button role="tab" class="${k === cur ? "on" : ""}" data-tab="${group}:${k}">${l}</button>`).join("")}</div>` }; };
+const table = (cols, rows, o = {}) => `<div class="scroll-x"><table class="t"><thead><tr>${cols.map(c => `<th>${c}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr class="${r.go ? "clickable" : ""}" ${r.go ? `data-go="${r.go}"` : ""}>${r.cells.map(c => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+const note = (txt, warn) => `<div class="note ${warn ? "warn" : ""}">${ic(warn ? "alert" : "shieldcheck")}<div>${txt}</div></div>`;
+const check = (on, title, sub = "") => `<div class="check"><span class="box ${on ? "on" : ""}">${on ? ic("check", "sm") : ""}</span><div><div style="font-weight:600">${title}</div>${sub ? `<div class="muted" style="font-size:12.5px">${sub}</div>` : ""}</div></div>`;
+const list = (items) => `<ul class="list">${items.map(i => `<li class="${i.go ? "clickable" : ""}" ${i.go ? `data-go="${i.go}"` : ""}>${i.lead || ""}<div class="grow"><div class="t">${i.t}</div>${i.s ? `<div class="s">${i.s}</div>` : ""}</div>${i.end || ""}</li>`).join("")}</ul>`;
+const bars = (pts) => { const m = Math.max(...pts.map(p => p[1])); return `<div class="chart" role="img" aria-label="Bar chart">${pts.map(p => `<div class="b"><i style="height:${Math.round(p[1] / m * 100)}%"></i><span>${p[0]}<br><b>${p[1]}</b></span></div>`).join("")}</div>`; };
+const spark = (c = "#12B76A") => `<svg class="spark" viewBox="0 0 120 34" preserveAspectRatio="none"><path d="M0 28 L18 27 L34 29 L52 26 L70 12 L84 24 L100 20 L120 6" fill="none" stroke="${c}" stroke-width="2" stroke-linejoin="round"/></svg>`;
+const avatar = (t, cls = "") => `<span class="avatar ${cls}">${t}</span>`;
+const stateBox = (kind, what) => {
+  const m = {
+    loading: ["", "", ""],
+    empty: [ic("folder", "lg"), `Nothing in ${what} yet`, "When there is something to show, it appears here, ranked by what needs you most."],
+    filter: [ic("filter", "lg"), "Nothing matches these filters", "Clear a filter or change the search to see more."],
+    error: [ic("alert", "lg"), `${what} could not be loaded`, "The service did not answer. Nothing was changed. Try again in a moment."],
+    notconfigured: [ic("plug", "lg"), "Not configured", `${what} has not been set up for this workspace. An administrator can connect it under Settings, Integrations.`],
+    nopermission: [ic("lock", "lg"), "No permission", `Your role cannot see ${what}. Ask a workspace administrator if you need access.`]
+  }[kind];
+  if (kind === "loading") return `<div class="card"><div class="skel" style="width:40%"></div><div class="skel"></div><div class="skel" style="width:85%"></div><div class="skel" style="width:70%"></div><div class="skel"></div></div>`;
+  return `<div class="statebox">${m[0]}<h3>${m[1]}</h3><p>${m[2]}</p>${kind === "error" ? btn("Try again", { kind: "primary", act: "reload" }) : ""}</div>`;
+};
+
+/* ---------- navigation model (same groups as the real rail) ---------- */
+const RAIL = [
+  ["Work", [["brief", "Brief", "home"], ["claims", "Claims", "claims"], ["acquisition", "Acquisition", "building"], ["workspace", "Kato workspace", "sparkles"], ["inbox", "Inbox", "inbox"], ["academy", "IIP Academy", "cap"]]],
+  ["Data", [["datahub", "Data Hub", "book"]]]
+];
+const MORE = [["assistant", "Assistant", "message"], ["mywork", "My work", "tasks"], ["customers", "Customers", "users"], ["communications", "Communications", "mail"], ["retention", "Retention", "refresh"], ["documents", "Documents", "file"], ["policy", "Policy", "file"], ["fraud", "Fraud", "shieldalert"], ["underwriting", "Underwriting", "gavel"], ["flows", "Automation", "branch"], ["insights", "Insights", "chart"], ["audit", "Audit", "shieldcheck"]];
+const SETTINGS_ORDER = [["integrations", "Integrations", "plug"], ["datahubset", "Data Hub", "drive"], ["agentrules", "Agent rules", "bot"], ["security", "Security and login", "shield"], ["notifications", "Notifications", "bell"], ["usage", "Usage", "bars"], ["billing", "Billing", "card"], ["seats", "Account seats", "users"], ["organization", "Organization", "building"], ["products", "Products", "package"], ["profile", "Profile", "user"], ["governance", "Governance and policies", "gavel"]];
+
+/* ---------- render ---------- */
+function routeOf(hash) { const p = (hash || "").replace(/^#\/?/, "").split("/"); return { route: p[0] || "brief", params: { id: p[1] } }; }
+function go(route, id) { location.hash = "#/" + route + (id ? "/" + id : ""); }
+function activeRail(route) {
+  const map = { claim: "claims", newclaim: "claims", customer: "customers", operatoraccount: "operator", operatorinvoices: "operator", operatorbilling: "operator", operatoronboard: "operator", operatorinvoice: "operator" };
+  return map[route] || route;
+}
+function shell(inner, r) {
+  const a = activeRail(S.route);
+  const nav = ([k, l, i]) => `<button class="nav ${a === k ? "active" : ""}" data-go="${k}" title="${l}" aria-label="${l}">${ic(i)}<span>${l}</span></button>`;
+  return `
+  <div class="shell">
+    <aside class="rail ${S.rail ? "open" : ""}" aria-label="Primary">
+      <div class="logo"><span class="mark">IIP</span>${S.rail ? "<span>IIP Operations</span>" : ""}</div>
+      ${RAIL.map(([g, items]) => `<div class="grp">${g}</div>${items.map(nav).join("")}${g === "Work" ? '<div class="sep"></div>' : ""}`).join("")}
+      <div class="spacer"></div>
+      <button class="nav" data-act="rail" title="Expand navigation" aria-label="Expand navigation">${ic("panel")}<span>Collapse</span></button>
+      <button class="nav" data-act="menu" aria-label="Profile menu" title="Profile menu"><span class="avatar sm" style="display:grid">GT</span><span>Grace Tendo</span></button>
+    </aside>
+    <div class="main">
+      <div class="topbar"><span class="crumb">${r.group || "IIP Operations"}</span><span class="sp"></span><span class="envpill">Demo environment, sample content</span><button class="icon-btn" data-act="notify" aria-label="Notifications">${ic("bell")}</button><button class="icon-btn" data-settings="profile" aria-label="Settings">${ic("settings")}</button></div>
+      <div class="content"><div class="col ${r.wide ? "wide" : ""}">${inner}</div></div>
+      ${S.route === "assistant" ? "" : `<div class="chatbar"><div class="inner" data-act="chat">${`<span class="orb"></span>`}<input placeholder="Ask Kato, or tell it what to do" aria-label="Ask Kato" readonly><button class="btn primary sm" aria-label="Open Kato">${ic("up", "sm")}</button></div></div>`}
+    </div>
+  </div>`;
+}
+function menuHtml() {
+  const role = S.role;
+  return `<div class="menu" role="menu"><div style="display:flex;gap:10px;align-items:center;padding:8px 10px">${avatar("GT")}<div><div style="font-weight:650">Grace Tendo</div><div class="faint" style="font-size:12px">Workspace administrator, Sample Insurer Ltd</div></div></div><hr>
+  <div class="gl">More</div>${MORE.map(([k, l, i]) => `<button data-go="${k}">${ic(i, "sm")}${l}</button>`).join("")}<hr>
+  <button data-settings="profile">${ic("settings", "sm")}Settings</button><button data-go="search">${ic("search", "sm")}Search</button><button data-go="integrations">${ic("plug", "sm")}Integrations and health</button><button data-go="support">${ic("shield", "sm")}Support</button><button data-go="admin">${ic("gavel", "sm")}Admin console</button>
+  <div class="proposed"><hr><div class="gl">Otic team only ${tag("new")}</div><button data-go="operator">${ic("building", "sm")}Operator console</button></div><hr>
+  <button data-go="login">${ic("logout", "sm")}Sign out</button></div>`;
+}
+function settingsHtml() {
+  const cur = S.settings, def = SET[cur] || SET.profile;
+  return `<div class="scrim" data-act="closeset"><div class="modal" role="dialog" aria-label="Settings" data-stop="1">
+    <nav class="side"><h2>${ic("settings")}Settings</h2>${SETTINGS_ORDER.map(([k, l, i]) => `<button class="${k === cur ? "on" : ""}" data-settings="${k}">${ic(i, "sm")}${l}${["integrations","datahubset","agentrules","security","notifications","usage","billing","seats","organization","profile","governance"].includes(k) && ["datahubset", "notifications", "governance", "usage"].includes(k) ? "" : ""}</button>`).join("")}</nav>
+    <div class="body"><div class="mh"><div><h2>${def.title}</h2><p>${def.sub || ""}</p></div><span style="flex:1"></span><button class="icon-btn" data-act="closeset" aria-label="Close">${ic("x")}</button></div><div class="mb">${S.state !== "normal" ? stateBox(S.state, def.title) : def.render()}</div></div></div></div>`;
+}
+function chatHtml() {
+  return `<aside class="drawer" aria-label="Kato"><div class="dh"><span class="orb"></span><div><b>Kato</b><div class="faint" style="font-size:12px">Prepares work. A person decides.</div></div><span style="flex:1"></span><button class="icon-btn" data-act="chat" aria-label="Close">${ic("x")}</button></div>
+  <div class="db" id="chatlog">
+    <div class="msg me">Chase the customers on open claims who still owe us a police abstract.<div class="meta">You, 09:12</div></div>
+    <div class="msg in">I found <b>4 open claims</b> that are missing a police abstract and have waited 3 days or more. I have not sent anything. Here is what I would do:
+      <div class="proposal"><div class="pl">Proposed action, not yet done</div>
+        <div style="font-weight:600;margin-bottom:6px">Send a reminder asking for the police abstract</div>
+        <ul style="margin:0 0 8px 18px;padding:0" class="muted"><li>CLM-1A2B3C4D, Amina K., waiting 5 days</li><li>CLM-7E90F1A2, Brian O., waiting 4 days</li><li>CLM-33C8B2D0, Ruth N., waiting 3 days</li><li>CLM-90AA41BE, Samuel T., waiting 3 days</li></ul>
+        <div class="muted" style="font-size:12.5px;margin-bottom:8px">Channel: WhatsApp, approved template. Sent in office hours. Each customer is reminded once. Evidence: <span class="cite">1</span><span class="cite">2</span></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary sm" data-act="confirmprop">Confirm and queue 4 reminders</button><button class="btn sm">Edit list</button><button class="btn sm">Cancel</button></div>
+      </div><div class="meta">Kato, 09:12. Reminders need your confirmation. Kato cannot decide a claim.</div></div>
+  </div>
+  <div class="df"><input class="in" id="chatin" placeholder="Ask Kato, or tell it what to do"><button class="btn primary" data-act="send" aria-label="Send">${ic("up", "sm")}</button></div></aside>`;
+}
+function render() {
+  const { route, params } = routeOf(location.hash);
+  S.route = route; S.params = params;
+  const app = $("#app");
+  if (route === "login") { app.innerHTML = R.login.render(); return; }
+  const r = R[route] || { title: "Not found", render: () => card("This screen is not in the prototype", "<p class='muted'>Pick a screen from the list above.</p>") };
+  let body;
+  if (S.state !== "normal" && !r.nostate) body = stateBox(S.state, r.title);
+  else body = r.render(params);
+  const srcLabel = { iip: "Exists in IIP today", cip: "Taken from CIP", new: "Proposed, not built" }[r.src] || "";
+  const head = `<div class="head"><div><div class="eyebrow">${r.group || ""}</div><h1>${r.title}${r.src ? tag(r.src) : ""}</h1>${r.sub ? `<p>${r.sub}</p>` : ""}</div>${r.acts ? `<div class="acts">${r.acts}</div>` : ""}</div>${r.note ? `<div class="annot">${srcLabel}. ${r.note.replace(/^Not built\.\s*/, "")}</div>` : ""}`;
+  app.innerHTML = shell(head + body, r) + (S.menu ? menuHtml() : "") + (S.settings ? settingsHtml() : "") + (S.chat ? chatHtml() : "");
+  const sel = $("#screenpick"); if (sel) sel.value = route;
+}
+
+/* ---------- events (one delegated listener) ---------- */
+document.addEventListener("click", (e) => {
+  const t = e.target.closest("[data-go],[data-act],[data-tab],[data-toggle],[data-settings],[data-stop],[data-inbox]");
+  if (S.menu && !e.target.closest(".menu") && !(t && t.dataset.act === "menu")) { S.menu = false; if (!t) return render(); }
+  if (!t) return;
+  const d = t.dataset;
+  if (d.stop && !d.act && !d.go && !d.tab && !d.settings && !d.toggle) return;
+  if (d.settings) { S.settings = d.settings; S.menu = false; return render(); }
+  if (d.go) { S.menu = false; S.settings = null; S.chat = false; if (location.hash === "#/" + d.go) return render(); return go(...d.go.split("/")); }
+  if (d.tab) { const [g, v] = d.tab.split(":"); S.tabs[g] = v; return render(); }
+  if (d.toggle) { S.flags[d.toggle] = !(S.flags[d.toggle] ?? d.on === "1"); return render(); }
+  if (d.inbox) { S.inboxSel = +d.inbox; return render(); }
+  switch (d.act) {
+    case "rail": S.rail = !S.rail; return render();
+    case "menu": S.menu = !S.menu; return render();
+    case "chat": S.chat = !S.chat; return render();
+    case "closeset": if (e.target.closest(".modal") && !e.target.closest("[data-act=closeset]")) return; S.settings = null; return render();
+    case "reload": return render();
+    case "notify": alert("Prototype: the notification bell opens the in-app alerts list."); return;
+    case "confirmprop": { const log = $("#chatlog"); log.insertAdjacentHTML("beforeend", `<div class="msg in">Queued 4 reminders for office hours tomorrow. You can cancel any of them from Communications. Nothing has been sent yet.<div class="meta">Kato, now. Recorded in the audit log.</div></div>`); log.scrollTop = log.scrollHeight; return; }
+    case "send": { const i = $("#chatin"); if (!i.value.trim()) return; const log = $("#chatlog"); log.insertAdjacentHTML("beforeend", `<div class="msg me">${i.value.replace(/</g, "&lt;")}<div class="meta">You, now</div></div><div class="msg in">In the real product Kato would work out the intent, show a plan, and wait for your confirmation. This is a prototype, so there is no reply.<div class="meta">Kato</div></div>`); i.value = ""; log.scrollTop = log.scrollHeight; return; }
+    default: if (d.act && window.ACT && ACT[d.act]) return ACT[d.act](t);
+  }
+});
+window.addEventListener("hashchange", () => { S.menu = false; render(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { S.menu = false; S.settings = null; S.chat = false; render(); } });
+
+/* ---------- prototype bar ---------- */
+function protoBar() {
+  const groups = {};
+  Object.entries(R).forEach(([k, r]) => { (groups[r.group || "Other"] = groups[r.group || "Other"] || []).push([k, r.title]); });
+  return `<div id="protobar"><b>IIP prototype</b><span>Sample content only. Nothing is connected.</span>
+  <label>Screen <select id="screenpick" aria-label="Jump to screen">${Object.entries(groups).map(([g, items]) => `<optgroup label="${g}">${items.map(([k, t]) => `<option value="${k}">${t}</option>`).join("")}</optgroup>`).join("")}</select></label>
+  <label>State <select id="statepick" aria-label="Show state"><option value="normal">Normal</option><option value="loading">Loading</option><option value="empty">Empty</option><option value="filter">Empty after filter</option><option value="error">Error</option><option value="notconfigured">Not configured</option><option value="nopermission">No permission</option></select></label>
+  <label><input type="checkbox" id="annpick" checked> Labels</label><label><input type="checkbox" id="proppick" checked> Proposed additions</label>
+  <span class="grow"></span><span class="legend"><span>${tag("iip")}</span><span>${tag("cip")}</span><span>${tag("new")}</span></span></div>`;
+}
+function boot() {
+  document.body.insertAdjacentHTML("afterbegin", protoBar());
+  $("#screenpick").addEventListener("change", (e) => go(e.target.value));
+  $("#statepick").addEventListener("change", (e) => { S.state = e.target.value; render(); });
+  $("#annpick").addEventListener("change", (e) => document.body.classList.toggle("noann", !e.target.checked));
+  $("#proppick").addEventListener("change", (e) => document.body.classList.toggle("noprop", !e.target.checked));
+  render();
+}
+
+/* =====================================================================
+   Screens, part A: sign-in, Brief, Claims, claim review, new claim.
+   Sample data only. Names are invented for design review.
+   ===================================================================== */
+const CLAIMS = [
+  ["CLM-1A2B3C4D", "Amina K.", "Motor, comprehensive", "Documents missing", "warn", 62, "5 of 10 days", "UGX 4,200,000", "Grace T.", "10 min ago"],
+  ["CLM-7E90F1A2", "Brian O.", "Motor, third party", "In review", "info", 88, "3 of 10 days", "UGX 1,150,000", "Peter M.", "1 h ago"],
+  ["CLM-33C8B2D0", "Ruth N.", "Health, outpatient", "Waiting for customer", "warn", 45, "4 of 7 days", "UGX 380,000", "Grace T.", "3 h ago"],
+  ["CLM-90AA41BE", "Samuel T.", "Property, fire", "Ready for decision", "ok", 100, "6 of 14 days", "UGX 18,500,000", "Peter M.", "Yesterday"],
+  ["CLM-5D21CC07", "Lydia A.", "Motor, comprehensive", "SLA at risk", "bad", 71, "9 of 10 days", "UGX 2,760,000", "Unassigned", "Yesterday"],
+  ["CLM-0B7712EF", "Joseph B.", "Travel", "Closed", "", 100, "Done", "UGX 640,000", "Grace T.", "2 days ago"]
+];
+const pillStatus = (s, tone) => pill(s, tone);
+const completeness = (n) => `<div style="display:flex;align-items:center;gap:8px;min-width:120px"><div class="bar" style="flex:1"><i style="width:${n}%"></i></div><span class="muted" style="font-size:12px">${n}%</span></div>`;
+
+R.login = {
+  title: "Sign in", group: "Access", src: "cip", nostate: true,
+  render: () => `<div class="login"><div class="box"><div style="display:flex;align-items:baseline;justify-content:space-between"><h1 style="margin:0;font-size:24px">Sign in</h1><span class="faint" style="font-size:12px">Demo environment</span></div>
+  <p class="muted">Prepared by the platform. Decided by people.</p>
+  <button class="btn ms" data-go="brief">${ic("building", "sm")}Continue with Microsoft</button><div class="faint" style="text-align:center;font-size:11.5px;margin:6px 0 4px">Work or school account, checked by Microsoft Entra ID.</div>
+  <button class="btn gg" disabled>${ic("globe", "sm")}Continue with Google</button>
+  <div style="display:flex;align-items:center;gap:10px;margin:16px 0"><span style="flex:1;border-top:1px solid var(--border)"></span><span class="faint">or</span><span style="flex:1;border-top:1px solid var(--border)"></span></div>
+  <div style="text-align:center"><button class="btn ghost" disabled>Sign in with email</button></div>
+  ${note("Google and email sign-in are not set up for this environment.")}
+  <p class="faint" style="font-size:11.5px;text-align:center;margin:0">By signing in you agree to the Terms and Conditions and the Privacy Policy.</p></div></div>`
+};
+
+R.brief = {
+  title: "Good evening, Grace", group: "Work", src: "iip",
+  sub: "Up to five claims that need you most, ranked from real fields: completeness, working days against the service standard, value at stake, risk signals and customer wait.",
+  note: "Landing screen. Real route /app.",
+  render: () => `
+  <div class="g4 grid" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:16px">${kpi("Awaiting you", "5", "of 23 open claims")}${kpi("SLA at risk", "2", "within 2 working days")}${kpi("Premium at risk", "UGX 9.4M", "12 policies up for renewal")}${kpi("Handled for you", "7", "today, by Kato")}</div>
+  <div class="split"><div>
+  ${card("Needs you", list(CLAIMS.slice(0, 5).map((c, i) => ({
+    go: "claim/" + c[0], lead: `<span class="avatar gray sm">${i + 1}</span>`,
+    t: `${c[0]} · ${c[1]} <span class="faint" style="font-weight:400">${c[2]}</span>`,
+    s: ["Two required documents are missing and the customer has waited 5 days.", "All documents are in. One extracted amount needs your check.", "Waiting 4 of 7 days. The customer has not replied since Monday.", "Complete and ready for your decision. Value at stake is the highest this week.", "9 of 10 working days used. Nobody is assigned."][i],
+    end: `${pill(c[3], c[4])}<button class="btn primary sm">${["Request documents", "Check amounts", "Send reminder", "Open decision", "Assign"][i]}</button>`
+  })), { }), { flush: true, cls: "flush" })}
+  <div class="proposed">${card(`Suggested for you ${tag("new")}`, list([
+    { t: "Ask the repairer for the estimate on CLM-1A2B3C4D", s: "Waiting 5 days. Reason: the estimate is the only document missing. Evidence: <span class='cite'>1</span>", end: `<button class="btn primary sm">Preview and confirm</button><button class="btn sm">Dismiss</button><button class="btn sm">Snooze</button>` },
+    { t: "Warn the officer 24 hours before SLA breach on CLM-5D21CC07", s: "9 of 10 working days used. Evidence: <span class='cite'>2</span>", end: `<button class="btn primary sm">Preview and confirm</button><button class="btn sm">Dismiss</button>` }
+  ]), { flush: true, cls: "flush" })}</div>
+  </div><div>
+  ${card("Handled for you", list([
+    { t: "Read 3 documents on CLM-7E90F1A2", s: "Extracted values are waiting for your check", end: pill("Done", "ok") },
+    { t: "Reminded Ruth N. about the missing receipt", s: "WhatsApp, approved template, 14:10", end: pill("Sent", "ok") },
+    { t: "Flagged a duplicate phone number", s: "Fraud-risk indicator for human review", end: pill("Review", "warn") }
+  ]), { flush: true, cls: "flush" })}
+  ${note("Kato prepared this list. Every decision on a claim stays with a person.")}
+  </div></div>`
+};
+
+R.claims = {
+  title: "Claims", group: "Work", src: "iip", sub: "Every claim in this workspace, with what is missing and how long it has waited.", note: "Real route /app/claims.",
+  acts: btn("New claim", { kind: "primary", icon: "plus", go: "newclaim" }),
+  render: () => `<div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap"><label class="search">${ic("search", "sm")}<input placeholder="Search by reference, customer or policy"></label><select class="sel" style="width:170px"><option>All statuses</option><option>Documents missing</option><option>In review</option><option>SLA at risk</option><option>Ready for decision</option></select><select class="sel" style="width:150px"><option>All products</option><option>Motor</option><option>Health</option><option>Property</option></select><select class="sel" style="width:140px"><option>Anyone</option><option>Me</option><option>Unassigned</option></select></div>
+  ${card("", table(["Reference", "Customer", "Product", "Status", "Completeness", "Working days", "Value", "Owner", "Updated"], CLAIMS.map(c => ({ go: "claim/" + c[0], cells: [`<b>${c[0]}</b>`, c[1], c[2], pill(c[3], c[4]), completeness(c[5]), c[6], c[7], c[8], `<span class="faint">${c[9]}</span>`] }))), { flush: true, cls: "flush" })}`
+};
+
+R.claim = {
+  title: "CLM-1A2B3C4D · Amina K.", group: "Work", src: "iip", sub: "Motor, comprehensive. Policy MTR-004821. Loss on 3 November, Kampala.", note: "Real route /app/claims/[id]. AI preparation and the human decision sit in separate containers.",
+  acts: btn("Export claim pack", { icon: "download" }) + btn("Request missing documents", { kind: "primary", icon: "mail" }),
+  render: () => `
+  <div class="stage"><div class="done">Reported</div><div class="done">Documents</div><div class="cur">Review</div><div>Decision</div><div>Settlement</div><div>Closed</div></div>
+  <div class="split"><div>
+    ${card("Completeness", `<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">${completeness(62)}<span class="muted">5 of 8 required items</span></div>${check(true, "Claim form", "Received 4 Nov")}${check(true, "Driving licence", "Read, confidence high")}${check(true, "Vehicle registration card", "Read, confidence high")}${check(false, "Police abstract", "Missing. Customer asked on 5 Nov.")}${check(false, "Repair estimate", "Missing. Repairer not yet contacted.")}`)}
+    ${card("Documents and extracted values", table(["Document", "Field", "Value read", "Confidence", "Check"], [
+      { cells: ["Driving licence", "Licence number", "DL-0093817", pill("High", "ok"), `<button class="btn sm">Correct</button>`] },
+      { cells: ["Registration card", "Plate", "UBF 412K", pill("High", "ok"), `<button class="btn sm">Correct</button>`] },
+      { cells: ["Claim form", "Loss amount", "UGX 4,200,000", pill("Medium", "warn"), `<button class="btn sm primary">Confirm</button>`] }
+    ]), { flush: true, cls: "flush" })}
+    <div class="ai"><div class="lab">${ic("sparkles", "sm")}Prepared by Kato, advisory only</div>
+      <p style="margin:0 0 8px">The claim is for front-end damage after a collision on 3 November. The policy was active on that date <span class="cite">1</span> and the claimed amount is within the cover limit <span class="cite">2</span>. Two required documents are still missing, so the claim cannot be reviewed for a decision yet.</p>
+      <p style="margin:0" class="muted">Risk indicators for human review: none. Completeness is 62%.</p><div style="margin-top:10px;display:flex;gap:8px"><button class="btn sm">Open sources</button><button class="btn sm">Ask a policy question</button></div></div>
+    <div class="decision"><div class="lab">Decision, made by a person</div><p style="margin:0 0 10px" class="muted">Kato cannot approve, reject or settle a claim. Choosing an action shows what it will do before anything changes.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" disabled>Record approval</button><button class="btn" disabled>Record rejection</button><button class="btn">Request supervisor review</button><button class="btn">Draft customer update</button></div>
+      <div class="faint" style="font-size:12px;margin-top:8px">Decision actions unlock when the required documents are in and a supervisor is named.</div></div>
+  </div><div>
+    ${card("Details", `<dl class="kv"><dt>Customer</dt><dd>Amina K.</dd><dt>Phone</dt><dd>+256 7** *** 142</dd><dt>Policy</dt><dd>MTR-004821</dd><dt>Sum insured</dt><dd>UGX 28,000,000</dd><dt>Excess</dt><dd>UGX 500,000</dd><dt>Owner</dt><dd>Grace T.</dd><dt>Channel</dt><dd>WhatsApp</dd></dl>`)}
+    ${card("Activity", list([{ t: "Customer asked for the police abstract", s: "5 Nov, 14:10, by Kato, approved by Grace T." }, { t: "Documents read", s: "4 Nov, 09:41, 3 files" }, { t: "Claim opened from WhatsApp", s: "4 Nov, 09:12" }]), { flush: true, cls: "flush" })}
+  </div></div>`
+};
+
+R.newclaim = {
+  title: "New claim", group: "Work", src: "iip", sub: "Six steps. Nothing is submitted until you review it.", note: "Real route /app/claims/new (FNOL).",
+  render: () => `<div class="steps"><div class="done">1 Policy</div><div class="done">2 Incident</div><div class="cur">3 Documents</div><div>4 People</div><div>5 Review</div><div>6 Submit</div></div>
+  ${card("Documents", `<div class="statebox" style="padding:28px">${ic("upload", "lg")}<h3>Drop files here or choose them</h3><p>PDF, JPG, PNG or a phone photo. Each file is read and the values are offered for you to check.</p>${btn("Choose files", { icon: "clip" })}</div>
+  <div class="mt">${check(true, "Claim form", "claim-form.pdf, read")}${check(false, "Police abstract", "Required for this product")}${check(false, "Repair estimate", "Required for this product")}${check(false, "Photos of the damage", "Optional")}</div>`)}
+  <div style="display:flex;justify-content:space-between">${btn("Back")}${btn("Continue", { kind: "primary" })}</div>`
+};
+
+/* ---------- Acquisition (ported from CIP; tinted pills allowed here and in the Inbox) ---------- */
+const LEADS = [["Customer A", "99***09", "Unknown", "WhatsApp", "SME working capital", "Early", "t-blue", "Unassigned", "7 Nov, 11:07 PM"], ["Customer B", "99***14", "Unknown", "WhatsApp", "Not stated", "Early", "t-blue", "Unassigned", "7 Nov, 11:07 PM"], ["Customer C", "99***13", "Unknown", "WhatsApp", "Not stated", "Incomplete", "t-amber", "Unassigned", "7 Nov, 11:07 PM"], ["Ziora Technologies", "+25***62", "New-to-bank", "WhatsApp", "Not stated", "Needs info", "t-gray", "Unassigned", "6 Nov, 01:57 AM"]];
+R.acquisition = {
+  title: "Acquisition", group: "Work", src: "cip", sub: "Lead customers arriving on WhatsApp and web chat, with readiness and an owner.", note: "Ported from CIP components. Real route /app/acquisition.", wide: true,
+  render: () => { const t = tabs("acq", [["customers", "Customers"], ["escalations", "Escalations"], ["scores", "Scores"], ["agents", "Agents"], ["channel", "Channel intelligence"]]);
+    const body = t.cur === "customers" ? `<div class="grid g5" style="margin-bottom:16px">${["Total lead customers|159", "Existing customers|75", "New prospects|6", "Needs account opening|79", "KYC partial or complete|0 / 75"].map(x => { const [l, v] = x.split("|"); return `<div class="kpi"><div class="l">${l}</div><div class="v">${v}</div>${spark()}</div>`; }).join("")}</div>
+      <div style="display:flex;gap:10px;margin-bottom:12px"><label class="search">${ic("search", "sm")}<input placeholder="Search customer or masked contact"></label><button class="btn">${ic("filter", "sm")}Filters</button></div>
+      ${card("", `<div class="ch"><h3>Lead customer queue</h3><span style="flex:1"></span><button class="btn sm">Sort</button></div>` + table(["Customer", "Masked contact", "Relationship", "Channel", "Product interest", "Readiness", "Assigned", "Last interaction", "Action"], LEADS.map(l => ({ cells: [`<b>${l[0]}</b>`, `<span class="mono">${l[1]}</span>`, pill(l[2], "", "t-gray"), l[3], l[4], pill(l[5], "", l[6]), l[7], l[8], `<button class="btn sm" data-go="inbox">View</button>`] }))), { flush: true, cls: "flush" })}`
+      : t.cur === "escalations" ? card("Escalations", list([{ t: "Customer asks to speak to a person", s: "Ziora Technologies, WhatsApp, waiting 12 min", end: pill("Urgent", "", "t-red") + `<button class="btn primary sm" data-go="inbox">Open</button>` }]), { flush: true, cls: "flush" })
+      : t.cur === "scores" ? card("Lead score distribution", bars([["Hot", 12], ["Warm", 38], ["Early", 71], ["Cold", 38]]), {})
+      : t.cur === "agents" ? card("Agents on this channel", list([{ t: "Customer assistant", s: "Answers general questions from approved sources, hands over to a person on request", end: pill("On", "ok") }, { t: "Conversation insights", s: "Records interests and a suggested next step after each reply", end: pill("On", "ok") }, { t: "Prospect triage", s: "Scores prospects. Never contacts anyone.", end: pill("On", "ok") }]), { flush: true, cls: "flush" })
+      : card("Channel intelligence", `<div class="grid g3">${kpi("WhatsApp", "134", "conversations this month")}${kpi("Web chat", "21", "conversations this month")}${kpi("QR scans", "4", "bancassurance campaign")}</div>`);
+    return t.html + body; }
+};
+
+/* ---------- Inbox (ported from CIP) ---------- */
+const CONVS = [["Customer D", "Sim, nooyenda kweguza ese...", "23:06", true], ["Customer E", "Any guidance is preliminary, ...", "23:06", true], ["Customer F", "Pole, sikuweza kukamilisha ji...", "23:06", true], ["Ziora Technologies", "I don't have details here abo...", "6 Nov", false], ["Customer G", "No need to apologise. ...", "5 Nov", true]];
+R.inbox = {
+  title: "Inbox", group: "Work", src: "cip", sub: "WhatsApp conversations. The assistant answers general questions; a person takes over from here.", note: "Ported from CIP. Real route /app/channels.", wide: true,
+  acts: pill("All 83", "", "t-gray") + pill("Unread 12", "", "t-blue") + pill("Open 71", "", "t-green"),
+  render: () => `<div class="inbox"><div class="cl"><div style="padding:10px"><label class="search">${ic("search", "sm")}<input placeholder="Search conversations"></label></div>${CONVS.map((c, i) => `<div class="conv ${i === S.inboxSel ? "on" : ""}" data-inbox="${i}">${avatar(c[0].split(" ").map(w => w[0]).join("").slice(0, 2), "sm")}<div style="min-width:0;flex:1"><div style="display:flex;justify-content:space-between"><b>${c[0]}</b><span class="faint" style="font-size:12px">${c[2]}</span></div><div class="muted" style="font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c[1]}</div></div></div>`).join("")}</div>
+  <div style="display:flex;flex-direction:column"><div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border)"><b>${CONVS[S.inboxSel][0]}</b>${toggle("autoreply", true)}<span class="muted" style="font-size:12.5px">Auto-reply ${S.flags.autoreply ?? true ? "on" : "off"}</span><span style="flex:1"></span><button class="btn sm">${ic("user", "sm")}Assign</button></div>
+  <div style="flex:1;overflow-y:auto;padding:12px 16px"><div class="bubble"><div class="who">Customer</div>Where are you from?</div><div class="bubble out"><div class="who">AI, branch location</div>Our head office is in Kampala, Uganda. It is at Plot 1, Pilot Avenue, Nakasero.</div><div class="bubble"><div class="who">Customer</div>What do you do?</div><div class="bubble out"><div class="who">AI, help</div>I do not have details here about the services we offer. Tell me what you are looking for, and I will help with the information available.</div></div>
+  <div style="padding:10px 14px;border-top:1px solid var(--border)">${note("Messages cannot be sent manually while auto-reply is on. Turn it off to take over.")}<div style="display:flex;gap:8px"><input class="in" placeholder="Write a reply" disabled><button class="btn primary" disabled>${ic("up", "sm")}</button></div></div></div>
+  <div class="ci" style="padding:16px"><h3 style="margin:0 0 12px">Customer information</h3><div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">${avatar("ZT")}<div><b>${CONVS[S.inboxSel][0]}</b><div class="faint">+25***62</div>${pill("New-to-bank prospect", "", "t-blue")}</div></div>
+  <dl class="kv" style="grid-template-columns:120px 1fr"><dt>Status</dt><dd>${pill("new", "ok")}</dd><dt>Product interest</dt><dd>Unknown</dd><dt>KYC status</dt><dd>Unknown</dd><dt>Account opening</dt><dd>Yes</dd><dt>Assigned officer</dt><dd>Unassigned</dd><dt>Lead priority</dt><dd>Needs more info</dd></dl><p class="faint" style="font-size:12px">AI-assisted insight. Advisory only. Not a credit decision.</p></div></div>`
+};
+
+/* ---------- Kato workspace (improved) ---------- */
+R.workspace = {
+  title: "Kato workspace", group: "Work", src: "iip", wide: true,
+  sub: "Attach a customer workbook and Kato reads it, maps the columns, scores the prospects and shows its reasons. Nothing is sent until a person approves.", note: "Real route /app/workspace. Improved: steps, mapping, reasons, exclusions, charts and the approval step are separate regions.",
+  acts: btn("Download Excel analysis", { icon: "download" }) + btn("New analysis", { icon: "plus" }),
+  render: () => `<div class="split"><div>
+  ${card("Attach a workbook", `<div class="statebox" style="padding:26px">${ic("upload", "lg")}<h3>Drop an .xlsx or .csv file</h3><p>Customer names, contacts, consent and product history. Sensitive columns such as national ID are ignored and listed so you can see what was left out.</p>${btn("Choose a file", { icon: "clip" })}</div>`)}
+  ${card("Prospect analysis", `<div class="note">${ic("check")}<div><b>customers-q3.xlsx</b>, analysed 7 Nov, 11:42. 1,284 rows read in 6 steps.</div></div>
+    <div class="grid g4" style="margin-bottom:14px">${kpi("Records read", "1,284")}${kpi("Eligible to review", "612")}${kpi("Excluded", "498")}${kpi("Need human review", "174")}</div>
+    <div class="steps">${["Read file", "Map columns", "Check consent", "Score", "Pick covers", "Prepare drafts"].map(s => `<div class="done">${s}</div>`).join("")}</div>
+    <div class="eyebrow">Suggested covers</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">${pill("Personal accident: 241", "info")}${pill("Motor comprehensive: 188", "info")}${pill("Household: 112", "info")}${pill("Health top-up: 71", "info")}</div>
+    <div class="eyebrow">Highest scores, with the reasons</div>${table(["Customer", "Cover", "Score", "Why", "Review"], [
+      { cells: ["Customer H", "Motor comprehensive", `<b>92</b> ${pill("Hot", "ok")}`, "Motor policy renews in 21 days. Consent on file. No claim in 3 years.", pill("Needs review", "warn")] },
+      { cells: ["Customer J", "Personal accident", `<b>88</b> ${pill("Hot", "ok")}`, "Recent loan, no cover on file, contact verified.", pill("Needs review", "warn")] },
+      { cells: ["Customer K", "Household", `<b>81</b> ${pill("Warm", "info")}`, "Mortgage on file, no property cover recorded.", pill("Needs review", "warn")] }
+    ])}`)}
+  ${card("Charts", `<div class="grid g2"><div><div class="eyebrow">Score distribution</div>${bars([["0-20", 41], ["21-40", 133], ["41-60", 302], ["61-80", 288], ["81-100", 120]])}</div><div><div class="eyebrow">Exclusion reasons</div>${bars([["No consent", 311], ["No contact", 96], ["Duplicate", 58], ["Staff", 33]])}</div></div>`)}
+  </div><div>
+  ${card("Column mapping", table(["Column", "Mapped to", "Confidence"], [{ cells: ["Full Name", "Customer name", pill("High", "ok")] }, { cells: ["Phone No", "Contact", pill("High", "ok")] }, { cells: ["Opt-in", "Consent", pill("Medium", "warn")] }]), { flush: true, cls: "flush" })}
+  ${note("Ignored for privacy: National ID, Date of birth.")}
+  ${card("Campaign readiness", `<p class="muted" style="margin-top:0">612 prospects can be contacted after review. Message drafts use approved templates only.</p><div class="decision" style="margin-bottom:0"><div class="lab">Decision, made by a person</div><button class="btn primary" disabled>Approve and send</button> ${pill("Not configured", "")}<div class="faint" style="font-size:12px;margin-top:8px">Needs WhatsApp templates approved by Meta, and a named approver.</div></div>`)}
+  </div></div>`
+};
+
+R.academy = { title: "IIP Academy", group: "Work", src: "iip", sub: "Courses, progress and certificates for your team. Opens in its own area.", note: "Real routes under /academy.", render: () => `<div class="grid g3">${["Claims fundamentals|4 lessons|In progress", "Working with Kato|6 lessons|Not started", "Data protection basics|3 lessons|Completed"].map(x => { const [t, l, s] = x.split("|"); return card(t, `<p class="muted">${l}</p>${pill(s, s === "Completed" ? "ok" : "")}<div class="mt">${btn("Open", { go: "academy" })}</div>`) }).join("")}</div>` };
+
+R.datahub = {
+  title: "Data Hub", group: "Data", src: "iip", sub: "Documents the agents search and cite, kept apart for staff and for customers.", note: "Real route /app/knowledge. The CIP version splits internal and customer agents.",
+  acts: btn("Upload document", { kind: "primary", icon: "upload" }),
+  render: () => { const t = tabs("dh", [["internal", "Internal agent"], ["customer", "Customer agent"]]); return t.html +
+    note(t.cur === "internal" ? "Staff use only. The internal agent uses these files to answer your team. Customers never see them." : "These files can be quoted to customers. Only approved documents appear here.") +
+    card("Uploaded", `<div style="display:flex;gap:10px;margin-bottom:10px;align-items:center"><span class="muted">Category</span><select class="sel" style="width:160px"><option>Policy</option><option>Procedure</option><option>FAQ</option></select><label style="display:flex;gap:8px;align-items:center"><input type="checkbox"> New uploads become agent rules</label></div>` +
+      list([{ lead: ic("file"), t: "Motor_Claims_Procedure_v3.pdf", s: "139 KB, uploaded 2 Nov, by Grace T.", end: pill("Agent rules on", "ok") + `<button class="icon-btn" aria-label="Delete">${ic("trash")}</button>` }, { lead: ic("file"), t: "Health_Policy_Wording_2026.pdf", s: "2.1 MB, uploaded 28 Oct", end: pill("Agent rules off", "") + `<button class="icon-btn" aria-label="Delete">${ic("trash")}</button>` }]), { flush: true, cls: "flush" }) +
+    card("From SharePoint, OneDrive and Google Drive", `<p class="muted" style="margin:0">No folders chosen for the ${t.cur} agent yet. Choose them under Integrations.</p><div class="mt">${btn("Open Integrations", { set: "integrations" })}</div>`); }
+};
+
+R.assistant = {
+  title: "Assistant", group: "More", src: "cip", sub: "Ask for data, a report or a document, or tell Kato what to do. It shows its plan before it acts.", note: "CIP's Command Center landing, in IIP's calm style. Real route /app/assistant.", nostate: false,
+  render: () => `<div style="max-width:760px;margin:30px auto 0;text-align:center"><h2 style="font-size:34px;letter-spacing:-.02em;margin:0">Good evening, <span style="color:var(--primary)">Grace</span></h2><p class="muted" style="font-size:16px">Ask for any data, report or document, or tell it what to do, across claims, customers and channels.</p>
+  <div class="chatbar" style="position:static;padding:14px 0"><div class="inner" style="max-width:none">${ic("clip")}<input placeholder="Ask anything or tell me what to do" aria-label="Ask Kato"><button class="btn primary sm">${ic("up", "sm")}</button></div></div></div>
+  <div style="max-width:760px;margin:10px auto 0"><div class="eyebrow" style="text-align:center">Insights from your data</div><div class="grid g3">${[["Claims at SLA risk", "2 of 23 open claims"], ["Customers waiting", "7 replies overdue"], ["Pending review", "12 documents to check"]].map(x => `<div class="kpi clickable"><div style="font-weight:650">${x[0]}</div><div class="muted">${x[1]}</div></div>`).join("")}</div>
+  <div class="proposed" style="margin-top:16px">${card(`Try saying ${tag("new")}`, `<ul class="muted" style="margin:0;padding-left:18px"><li>Chase the customers who still owe us a police abstract</li><li>Assign all unassigned motor claims to Peter</li><li>Every Monday, send me the list of claims at SLA risk</li></ul>`)}</div>
+  ${card("Recent chats", list([{ t: "I want you to work on this application", s: "Yes, I can read the file. 23 Oct" }, { t: "Generate for me an Excel report", s: "I have generated an Excel report. 21 Oct" }]), { flush: true, cls: "flush" })}</div>`
+};
+
+/* =====================================================================
+   Screens, part B: the rest of the IIP destinations and the Admin console.
+   ===================================================================== */
+const CUSTOMERS = [["Amina K.", "Motor", "3 policies", "1 open claim", "Verified"], ["Brian O.", "Motor", "1 policy", "1 open claim", "Verified"], ["Ruth N.", "Health", "2 policies", "1 open claim", "Verified"], ["Samuel T.", "Property", "1 policy", "1 open claim", "Verified"], ["Lydia A.", "Motor", "2 policies", "1 open claim", "Pending"]];
+
+R.mywork = {
+  title: "My work", group: "More", src: "iip", sub: "Everything assigned to you, from claims to agent work items, in one ranked list.", note: "Real route /app/work-items.",
+  render: () => { const t = tabs("mw", [["all", "All (9)"], ["claims", "Claims (5)"], ["review", "Agent work (3)"], ["follow", "Follow-ups (1)"]]); return t.html + card("", list(CLAIMS.slice(0, 4).map(c => ({ go: "claim/" + c[0], t: `${c[0]} · ${c[1]}`, s: c[2], end: pill(c[3], c[4]) })).concat([{ t: "Check extracted amounts on CLM-7E90F1A2", s: "Agent work item, extraction review", end: pill("Requires review", "warn") }])), { flush: true, cls: "flush" }); }
+};
+R.customers = {
+  title: "Customers", group: "More", src: "iip", sub: "People and organisations with a policy or a claim, with their consent and channels.", note: "Real route /app/customers.",
+  render: () => `<div style="display:flex;gap:10px;margin-bottom:12px"><label class="search">${ic("search", "sm")}<input placeholder="Search by name, phone or policy"></label><button class="btn">${ic("filter", "sm")}Filters</button></div>` +
+    card("", table(["Customer", "Product", "Policies", "Claims", "Identity"], CUSTOMERS.map(c => ({ go: "customer/" + c[0], cells: [`<b>${c[0]}</b>`, c[1], c[2], c[3], pill(c[4], c[4] === "Verified" ? "ok" : "warn")] }))), { flush: true, cls: "flush" })
+};
+R.customer = {
+  title: "Amina K.", group: "More", src: "iip", sub: "Customer profile, built only from this customer's own records.", note: "Real route /app/customers/[id].",
+  render: () => `<div class="split"><div>${card("Brief", `<div class="ai" style="margin:0"><div class="lab">${ic("sparkles", "sm")}Prepared by Kato</div><p style="margin:0">Amina holds three motor policies and has one open claim. Every point below cites its own record <span class="cite">1</span>. Contact details are withheld here.</p></div>`)}
+  ${card("Policies", table(["Policy", "Cover", "Status", "Renews"], [{ cells: ["MTR-004821", "Comprehensive", pill("Active", "ok"), "12 Mar 2027"] }, { cells: ["MTR-004822", "Third party", pill("Active", "ok"), "02 Jun 2027"] }, { cells: ["MTR-003110", "Comprehensive", pill("Lapsed", "warn"), "Lapsed 30 Sep"] }]), { flush: true, cls: "flush" })}
+  ${card("Conversations", list([{ t: "WhatsApp, 5 Nov", s: "Asked about the police abstract", end: pill("Closed", "") }]), { flush: true, cls: "flush" })}</div>
+  <div>${card("Profile", `<dl class="kv" style="grid-template-columns:110px 1fr"><dt>Phone</dt><dd>+256 7** *** 142</dd><dt>Email</dt><dd>a***@example.test</dd><dt>Language</dt><dd>English</dd><dt>Consent</dt><dd>WhatsApp, email</dd></dl>`)}${note("Consent and channel preferences are checked before any message is prepared.")}</div></div>`
+};
+R.communications = {
+  title: "Communications", group: "More", src: "iip", sub: "Customer messages prepared by Kato. Sensitive ones wait for a recorded human approval.", note: "Real route /app/communications.",
+  render: () => { const t = tabs("co", [["wait", "Waiting for approval (3)"], ["sent", "Sent"], ["templates", "Templates"]]); return t.html + (t.cur === "wait" ? card("", list([{ t: "Reminder: police abstract needed", s: "To Amina K. by WhatsApp, template claim_docs_reminder", end: `<button class="btn primary sm">Approve and send</button><button class="btn sm">Edit</button>` }, { t: "Update: your claim is in review", s: "To Brian O. by email", end: `<button class="btn primary sm">Approve and send</button><button class="btn sm">Edit</button>` }, { t: "Reminder: receipt needed", s: "To Ruth N. by WhatsApp", end: `<button class="btn primary sm">Approve and send</button><button class="btn sm">Edit</button>` }]), { flush: true, cls: "flush" }) : card("", `<p class="muted">Nothing to show in this tab for the sample.</p>`)); }
+};
+R.retention = {
+  title: "Retention", group: "More", src: "iip", sub: "Policies likely to lapse, and the premium at stake.", note: "Real route /app/retention.",
+  render: () => `<div class="grid g3" style="margin-bottom:16px">${kpi("Policies at risk", "12")}${kpi("Premium at risk", "UGX 9.4M")}${kpi("Renewing in 30 days", "31")}</div>` + card("", table(["Policy", "Customer", "Renews", "Premium", "Signal"], [{ cells: ["MTR-004821", "Amina K.", "12 Mar", "UGX 1.2M", "Late payment twice"] }, { cells: ["HLT-001204", "Ruth N.", "30 Nov", "UGX 640K", "Claim declined last year"] }]), { flush: true, cls: "flush" })
+};
+R.documents = {
+  title: "Documents", group: "More", src: "iip", sub: "Every file received, with what was read from it.", note: "Real route /app/documents.",
+  render: () => card("", table(["File", "Claim", "Type", "Read", "Confidence"], [{ cells: ["claim-form.pdf", "CLM-1A2B3C4D", "Claim form", pill("Read", "ok"), pill("Medium", "warn")] }, { cells: ["licence.jpg", "CLM-1A2B3C4D", "Driving licence", pill("Read", "ok"), pill("High", "ok")] }, { cells: ["estimate.pdf", "CLM-7E90F1A2", "Estimate", pill("Could not be read", "bad"), "Send back to customer"] }]), { flush: true, cls: "flush" })
+};
+R.policy = {
+  title: "Policy", group: "More", src: "iip", sub: "Ask what a policy covers, with the wording it came from.", note: "Real route /app/policy.",
+  render: () => `<div class="ai"><div class="lab">${ic("sparkles", "sm")}Prepared by Kato, from approved sources</div><p style="margin:0">Windscreen damage is covered under Section 4 up to UGX 1,500,000 per event <span class="cite">1</span>. Wear and tear is excluded <span class="cite">2</span>.</p></div>${card("Sources", list([{ t: "Motor_Policy_Wording_2026.pdf, Section 4", s: "Approved for AI retrieval" }, { t: "Motor_Policy_Wording_2026.pdf, Exclusions", s: "Approved for AI retrieval" }]), { flush: true, cls: "flush" })}`
+};
+R.fraud = {
+  title: "Fraud", group: "More", src: "iip", sub: "Fraud-risk indicators requiring human review. Never an accusation.", note: "Real route /app/fraud. Needs the View fraud signals permission.",
+  render: () => card("", table(["Claim", "Indicator", "Why", "Review"], [{ cells: ["CLM-5D21CC07", "Duplicate contact", "Same phone on 2 customers", `<button class="btn sm">Review</button>`] }, { cells: ["CLM-0B7712EF", "Claim velocity", "3 claims in 40 days", `<button class="btn sm">Review</button>`] }]), { flush: true, cls: "flush" })
+};
+R.underwriting = {
+  title: "Underwriting", group: "More", src: "iip", sub: "Referral and missing-information notes. Decisions stay with an underwriter.", note: "Real route /app/underwriting.",
+  render: () => card("", list([{ t: "Refer to a human underwriter because sum insured exceeds the product limit", s: "Prospect: Customer H, Motor comprehensive", end: pill("Referral", "warn") }, { t: "Missing: vehicle valuation", s: "Prospect: Customer K", end: pill("Missing", "") }]), { flush: true, cls: "flush" })
+};
+R.flows = {
+  title: "Automation", group: "More", src: "iip", sub: "Governed workflows, and the standing instructions that run inside limits you approve.", note: "Real route /app/flows today lists workflows. Standing instructions and suggestions are proposed.",
+  acts: btn("New standing instruction", { kind: "primary", icon: "plus" }),
+  render: () => { const t = tabs("fl", [["wf", "Workflows"], ["rules", "Standing instructions"], ["sug", "Suggestions"], ["log", "Decision log"]], "rules");
+    const wf = card("", table(["Workflow", "Release", "Status", "Human review"], [{ cells: ["Document to decision", "1", pill("Runs", "ok"), "Required"] }, { cells: ["FNOL claim readiness", "2", pill("Held", ""), "Required"] }, { cells: ["Claims triage and SLA", "3", pill("Held", ""), "Required"] }]), { flush: true, cls: "flush" });
+    const rules = `<div class="note">${ic("shieldcheck")}<div>A standing instruction is approved once, with its exact wording and limits. Changing any part removes the approval until it is approved again. Nothing here can decide a claim.</div></div>` + card("", table(["Name", "When", "Does", "Limits", "Status", "Last 7 days"], [
+      { cells: ["Missing document reminder", "Document missing for 3 days", "Remind the customer once", "Office hours, 1 per person per 30 days", pill("Approved", "ok") + " " + toggle("r1", true), "14 sent, 0 blocked"] },
+      { cells: ["SLA warning to officer", "24 hours before SLA breach", "Warn the assigned officer", "Internal only", pill("Approved", "ok") + " " + toggle("r2", true), "6 sent, 0 blocked"] },
+      { cells: ["Monday briefing", "Every Monday 07:30", "Prepare the briefing for each officer", "Draft only", pill("Draft", "") + " " + toggle("r3", false), "Not run"] }]), { flush: true, cls: "flush" });
+    const sug = `<div class="note">${ic("sparkles")}<div>Kato notices things and leaves a suggestion. Accepting runs the normal preview and approval path. Dismissed kinds go quiet. Acceptance rate per kind: reminders 82%, SLA warnings 91%, reassignments 34%.</div></div>` + card("", list([{ t: "Ask the repairer for the estimate on CLM-1A2B3C4D", s: "Open 2 h. Expires in 2 days.", end: pill("Open", "info") }, { t: "Reassign 3 claims from Peter M. while he is on leave", s: "Accepted yesterday by Grace T.", end: pill("Accepted", "ok") }]), { flush: true, cls: "flush" });
+    const log = card("", table(["Time", "Instruction", "Decision", "Detail"], [{ cells: ["14:10", "Missing document reminder", pill("Sent", "ok"), "Ruth N., WhatsApp"] }, { cells: ["13:02", "Missing document reminder", pill("Blocked", "warn"), "Outside office hours, queued for 09:00"] }, { cells: ["09:15", "SLA warning to officer", pill("Sent", "ok"), "CLM-5D21CC07"] }]), { flush: true, cls: "flush" });
+    return t.html + (t.cur === "wf" ? wf : t.cur === "rules" ? rules : t.cur === "sug" ? sug : log); }
+};
+R.insights = {
+  title: "Insights", group: "More", src: "iip", sub: "Management view from real aggregates. Marked partial where data is incomplete.", note: "Real route /app/executive.",
+  render: () => `<div class="grid g4" style="margin-bottom:16px">${kpi("Open claims", "23")}${kpi("Median days to decide", "6.2")}${kpi("Documents read", "412")}${kpi("Customer replies, 24 h", "91%")}</div><div class="grid g2">${card("Claims opened by week", bars([["W41", 9], ["W42", 14], ["W43", 11], ["W44", 19], ["W45", 16]]))}${card("Where claims wait", bars([["Customer", 12], ["Documents", 9], ["Review", 6], ["Decision", 3]]))}</div>`
+};
+R.audit = {
+  title: "Audit", group: "More", src: "iip", sub: "Who did what, when, and on what evidence.", note: "Real route /app/audit.",
+  render: () => card("", table(["Time", "Actor", "Action", "Subject"], [{ cells: ["09:12", "Grace T.", "Approved customer message", "CLM-1A2B3C4D"] }, { cells: ["09:10", "system:claim-triage", "Ran claims summary", "CLM-7E90F1A2"] }, { cells: ["08:57", "Peter M.", "Corrected extracted field", "Licence number"] }]), { flush: true, cls: "flush" })
+};
+R.search = { title: "Search", group: "More", src: "iip", sub: "Across claims, customers, policies and documents you may see.", note: "Real route /app/search.", render: () => `<label class="search" style="max-width:520px;margin-bottom:14px">${ic("search", "sm")}<input placeholder="Search"></label>${stateBox("empty", "your search")}` };
+R.support = { title: "Support", group: "More", src: "iip", sub: "Ask for help or report a problem.", note: "Real route /app/support.", render: () => card("Contact support", field("Subject") + field("What happened", "", { type: "area" }) + btn("Send", { kind: "primary" })) };
+R.integrations = {
+  title: "Integrations and health", group: "Admin", src: "iip", sub: "Live provider health and what each connection can do.", note: "Real route /app/integrations.",
+  render: () => card("", table(["Provider", "State", "Checked"], [{ cells: ["Azure OpenAI", pill("Connected", "ok"), "1 min ago"] }, { cells: ["Document Intelligence", pill("Connected", "ok"), "1 min ago"] }, { cells: ["WhatsApp Business", pill("Connected", "ok"), "3 min ago"] }, { cells: ["Email mailbox", pill("Needs attention", "warn"), "Token expires in 2 days"] }, { cells: ["Payments (Flutterwave)", pill("Not configured", ""), "Not set up"] }]), { flush: true, cls: "flush" })
+};
+R.admin = {
+  title: "Admin console", group: "Admin", src: "iip", sub: "Governance and operations for this workspace.", note: "Real route /app/admin. Cards shown depend on your permissions.",
+  render: () => { const cards = [["package", "Products", "Claim process, document matrix and approval, versioned"], ["file", "Policy import", "Load policies from CSV or Excel"], ["mail", "Claims pack email", "Who receives a claim's pack, and when"], ["message", "Claim status wording", "What customers read, status by status"], ["refresh", "Background work", "Documents being read, what is waiting"], ["settings", "Operating settings", "Reminder and SLA timings, seat limit"], ["users", "Users and roles", "Add users, change roles, audited"], ["bot", "Agents", "Registry, kill switch, run logs"], ["gavel", "Agent policy", "Baseline guardrails for all agents"], ["branch", "Flows", "Governed workflows and drafts"], ["card", "Billing and usage", "Plan, seats, AI credits, invoices"], ["plug", "Integrations", "Provider health and diagnostics"], ["message", "WhatsApp Business", "Connect your number, validated against Meta"], ["mail", "Message templates", "Opening messages WhatsApp must approve"], ["bell", "Team notifications", "Route claim events to people and a Teams channel"], ["lock", "Data protection", "Retention, legal holds, erasure"]];
+    return `<div class="grid g3">${cards.map(c => `<div class="card clickable" style="margin:0" ${c[1] === "Billing and usage" ? 'data-settings="billing"' : c[1] === "Users and roles" ? 'data-settings="seats"' : c[1] === "Products" ? 'data-settings="products"' : c[1] === "Integrations" ? 'data-go="integrations"' : ""}><div style="display:flex;gap:12px"><span class="avatar gray" style="border-radius:10px">${ic(c[0])}</span><div><b>${c[1]}</b><div class="muted" style="font-size:12.5px">${c[2]}</div></div></div></div>`).join("")}</div>`; }
+};
+
+/* =====================================================================
+   Settings sections (taken from CIP's settings screens, in IIP's style)
+   and the Operator console (proposed: for the Otic team, not customers).
+   ===================================================================== */
+const connCard = (name, ic_, desc, state, act) => `<div class="card" style="margin:0"><div style="display:flex;gap:12px;align-items:flex-start"><span class="avatar gray" style="border-radius:10px">${ic(ic_)}</span><div style="flex:1"><b>${name}</b><div class="muted" style="font-size:12.5px;margin:3px 0 10px">${desc}</div></div>${state === "on" ? pill("Connected", "ok") : ""}</div>${btn(act || (state === "on" ? "Disconnect" : "Connect"), { kind: state === "on" ? "danger" : "", cls: "" })}</div>`;
+
+SET.integrations = { title: "Integrations", sub: "What the platform can connect to, and what is connected.", render: () => { const t = tabs("int", [["cat", "Catalog"], ["yours", "Yours"]]); return t.html + `<div class="grid g2">${[["WhatsApp Business", "message", "Connect your number. Credentials are validated against Meta and stored encrypted.", "on"], ["Gmail", "mail", "One connection for the whole organisation. An admin connects once, then IIP emails updates to each person.", ""], ["Outlook and Exchange", "mail", "Mailbox for inbound claims and outbound email.", "on"], ["Google Drive", "folder", "Let the agent read the Drive files you choose.", ""], ["OneDrive", "folder", "Let the agent read documents from the folders you choose.", ""], ["SharePoint", "folder", "Read from chosen sites and libraries.", ""], ["SMS", "phone", "Outbound SMS for reminders.", ""], ["Payments, Flutterwave", "card", "Collect plan payments by card or mobile money on Flutterwave's own page.", ""]].filter(x => t.cur === "cat" || x[3] === "on").map(x => connCard(...x)).join("")}</div>`; } };
+SET.datahubset = { title: "Data Hub", sub: "Documents agents search and cite for this organisation, kept apart for staff and for customers.", render: () => `${note("Staff use only. The internal agent uses these files to answer your team. Customers never see them.")}${list([{ lead: ic("file"), t: "Motor_Claims_Procedure_v3.pdf", s: "139 KB", end: pill("Agent rules on", "ok") }])}<div class="mt">${btn("Upload document", { kind: "primary", icon: "upload" })} ${btn("Open full Data Hub", { go: "datahub" })}</div>` };
+SET.agentrules = { title: "Agent rules", sub: "Rules the WhatsApp agent follows, distilled from documents tagged for agent rules.", render: () => { const t = tabs("ar", [["review", "To review"], ["approved", "Approved"], ["all", "All"]], "all"); return note("Rules are drafted from internal documents marked Agent rules on. The agent only follows approved rules. When a source changes, new drafts appear here and approved rules stay in use until you review them.") + t.html + stateBox("empty", "agent rules"); } };
+SET.security = { title: "Security and login", sub: "Manage how you sign in and keep your account secure.", render: () => { const t = tabs("sec", [["ver", "Platform verification"], ["post", "Security posture"]]); const m = (n, i, on) => `<div class="card" style="margin:0;display:flex;align-items:center;gap:12px"><span class="avatar gray" style="border-radius:10px">${ic(i)}</span><div style="flex:1"><b>${n}</b></div>${on ? pill("Active", "ok") + btn("Deactivate", { cls: "sm" }) : pill("Not set up", "")}</div>`;
+  return t.html + (t.cur === "ver" ? `<div class="card" style="display:flex;align-items:center;gap:14px"><span class="avatar" style="border-radius:50%">${ic("shield")}</span><div style="flex:1"><b>Protect your account</b><div class="muted">Set up at least one verification method.</div></div>${pill("Protected", "ok")}</div><div class="grid g2">${m("Authenticator app, Microsoft", "shield", true)}${m("Authenticator app, Google", "shield", false)}${m("SMS codes", "phone", false)}${m("Passkey", "key", false)}${m("Backup codes", "file", false)}</div>` : `${note("Sign-in is managed by Microsoft Entra. IIP does not store passwords for work accounts.")}<div class="grid g2">${[["Encryption at rest", "AES-256, Azure platform"], ["Encryption in transit", "TLS 1.2 or higher"], ["Key management", "Azure Key Vault"], ["Access control", "Roles and Entra ID"], ["Audit logging", "Enabled"], ["Data residency", "Per deployment, shown honestly"]].map(x => `<div class="card" style="margin:0"><div class="muted" style="font-size:12.5px">${x[0]}</div><b>${x[1]}</b><div class="mt">${pill("Active", "ok")}</div></div>`).join("")}</div>`); } };
+SET.notifications = { title: "Notifications", sub: "Choose which memo, report and customer alerts reach you, and when.", render: () => { const t = tabs("not", [["recv", "What you receive"], ["sched", "Delivery schedule"], ["post", "Postponed"]]); const row = (n, d, em, inapp, urgent) => `<li><div class="grow"><div class="t">${n} ${urgent ? pill("Urgent", "bad") : ""}</div><div class="s">${d}</div></div>${toggle("n_e_" + n, em)}<span class="muted" style="font-size:12px">Email</span>${inapp === null ? "" : toggle("n_i_" + n, inapp) + '<span class="muted" style="font-size:12px">In-app</span>'}</li>`;
+  return `<div class="card" style="display:flex;align-items:center;gap:14px"><span class="avatar">${ic("bell")}</span><div style="flex:1"><b>Stay on top of what needs you</b><div class="muted">Email is on through your organisation's mailbox. IIP sends to the address you sign in with.</div></div>${pill("Delivering now", "ok")}</div>` + t.html +
+  (t.cur === "recv" ? card("Claims", `<ul class="list">${row("Review requests", "A claim needs your review or reaches a supervisor.", true, null, true)}${row("Claim decisions", "A claim you worked on is decided or returned.", true, null)}</ul>`, { flush: true, cls: "flush" }) + card("Customer conversations", `<ul class="list">${row("Customer escalations", "A customer asks to speak to a person.", true, true, true)}${row("New leads", "A new prospect starts a conversation on WhatsApp.", false, true)}</ul>`, { flush: true, cls: "flush" }) + card("Account and product", `<ul class="list">${row("Account and security alerts", "Sign-in, security and organisation changes.", true, null)}${row("Product news", "New features and capabilities.", false, null)}</ul>`, { flush: true, cls: "flush" })
+  : t.cur === "sched" ? card("Pause notifications", `<p class="muted">Held emails arrive together as one summary when the pause ends.</p><div style="display:flex;gap:8px;flex-wrap:wrap">${["1 hour", "4 hours", "Until tomorrow", "Until Monday"].map(x => btn(x)).join("")}</div>`) + card("Quiet hours", `<div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">${toggle("quiet", false)}<span>Hold emails during quiet hours</span></div><div class="row">${field("From", "06:00 PM")}${field("Until", "08:00 AM")}${field("Time zone", "Africa/Kampala", { type: "select", options: ["Africa/Kampala", "UTC"] })}</div><div style="display:flex;gap:10px;align-items:center">${toggle("urgent", true)}<span>Let urgent notifications through</span></div><div class="mt">${btn("Save schedule", { kind: "primary" })}</div>`) : stateBox("empty", "postponed notifications")); } };
+SET.usage = { title: "Usage", sub: "What this workspace has used this month, and the plan it is on.", render: () => `<div style="display:flex;gap:10px;align-items:center;margin-bottom:12px"><div><b>Agent plan, monthly</b><div class="muted">9 Oct to 7 Nov 2026. Unused allowance does not carry over.</div></div><span style="flex:1"></span>${btn("Usage budget")}${btn("Open billing", { kind: "primary", set: "billing" })}</div>
+  <div class="grid g4" style="margin-bottom:14px">${kpi("Plan fee", "UGX 75,000")}${kpi("Pay as you go", "UGX 0")}${kpi("VAT 18%", "UGX 0", "on usage only")}${kpi("To invoice", "UGX 0", "no budget set")}</div>
+  ${card("AI", `<div class="muted" style="margin-bottom:8px">143.5 credits used, 1,856.5 left in the pool</div><div class="bar"><i style="width:7%"></i></div><p class="faint" style="font-size:12px">An AI credit is (tokens read + 2 x tokens written) / 4,000, rounded up to the nearest half. Cached tokens count as read.</p>`)}
+  ${card("Other meters", table(["Meter", "Used", "Allowance"], [{ cells: ["Claims", "64", "100"] }, { cells: ["Documents read", "412", "1,000"] }, { cells: ["WhatsApp messages", "1,930", "Pay as you go"] }, { cells: ["Storage", "1.2 GB", "5 GB"] }]), { flush: true, cls: "flush" })}` };
+const PLANS = [["Free", "Try IIP on a few real claims.", "0", "0", "10 claims, 2 seats"], ["Agent", "One claims desk, with the assistant on WhatsApp and email.", "75,000", "20", "100 claims, 3 seats"], ["Team", "A claims team with approvals, products and reports.", "370,000", "99", "600 claims, 15 seats"], ["Enterprise", "Higher volumes, your own terms and support. Agreed with us directly.", "Talk to us", "", "Custom"]];
+SET.billing = { title: "Billing and invoices", sub: "Your plan, what you owe, and your receipts.", render: () => `<div class="card"><div style="display:flex;justify-content:space-between"><h3>This month</h3>${btn("View usage", { cls: "ghost sm", set: "usage" })}</div><div class="grid g4">${kpi("Plan fee", "UGX 75,000", "Agent, monthly")}${kpi("Pay as you go", "UGX 0")}${kpi("VAT 18%", "UGX 0")}${kpi("Usage to invoice", "UGX 0")}</div></div>
+  <div class="grid g2"><div class="card"><b>Current plan</b><p class="muted">Agent. 3 seats, 100 claims a month. Renews 7 Dec.</p>${btn("Cancel plan", { cls: "sm" })}</div><div class="card"><b>Payment method</b><p class="muted">No card on file. The card is entered on Flutterwave's page, never in IIP.</p>${pill("Payments not configured", "")}</div></div>
+  <div class="seg" style="margin-bottom:12px"><button class="${(S.tabs.cur || "UGX") === "UGX" ? "on" : ""}" data-tab="cur:UGX">UGX</button><button class="${S.tabs.cur === "USD" ? "on" : ""}" data-tab="cur:USD">USD</button></div>
+  <div class="grid g4">${PLANS.map((p, i) => `<div class="card" style="margin:0;${i === 1 ? "border-color:var(--primary)" : ""}"><b>${p[0]}</b>${i === 1 ? " " + pill("Current", "info") : ""}<div class="muted" style="font-size:12.5px;min-height:54px">${p[1]}</div><div style="font-size:22px;font-weight:650;margin:6px 0">${S.tabs.cur === "USD" ? (p[3] ? "$" + p[3] : p[2]) : (p[2] === "Talk to us" ? p[2] : "UGX " + p[2])}<span class="faint" style="font-size:12px;font-weight:400">${p[3] || p[2] === "0" ? " / month" : ""}</span></div><div class="faint" style="font-size:12px;margin-bottom:10px">${p[4]}</div>${i === 3 ? btn("Contact us") : i === 1 ? btn("Current plan", { cls: "off" }) : btn("Pay by card or mobile money", { kind: "primary", cls: "sm" })}</div>`).join("")}</div>
+  <h3 style="margin:20px 0 8px">Invoices</h3>${card("", table(["Number", "Plan", "Amount", "Status", "Paid", "Receipt"], [{ cells: ["INV-2026-0031", "Agent", "UGX 75,000", pill("Paid", "ok"), "7 Nov", `<button class="btn sm">${ic("download", "sm")}PDF</button>`] }, { cells: ["INV-2026-0019", "Agent", "UGX 75,000", pill("Paid", "ok"), "7 Oct", `<button class="btn sm">${ic("download", "sm")}PDF</button>`] }]), { flush: true, cls: "flush" })}` };
+SET.seats = { title: "Account seats", sub: "Invite colleagues by email. People already on IIP can switch between their organisations.", render: () => `<div class="card" style="display:flex;align-items:center;gap:14px"><span class="avatar">${ic("users")}</span><div style="flex:1"><b>Your team on IIP</b><div class="muted">3 of 3 seats used on the Agent plan.</div></div>${btn("Export", { icon: "download" })}${btn("Invite people", { kind: "primary", icon: "plus" })}</div><div class="grid g4" style="margin-bottom:14px">${kpi("People", "2")}${kpi("Admins", "1")}${kpi("Members", "1")}${kpi("Pending invites", "0")}</div>${card("", list([{ lead: avatar("GT", "sm"), t: "Grace Tendo <span class='pill'>You</span>", s: "grace@example.test", end: pill("Workspace administrator", "") + pill("Active", "ok") }, { lead: avatar("PM", "sm gray"), t: "Peter Mugisha", s: "peter@example.test", end: pill("Claims officer", "") + pill("Active", "ok") }]), { flush: true, cls: "flush" })}` };
+SET.organization = { title: "Organization", sub: "Organization profile used across IIP. Your logo appears in the header.", render: () => `<div style="display:flex;gap:14px;align-items:center;margin-bottom:14px"><span class="avatar lg gray">SI</span><div><b>Organization logo</b><div class="muted">Shown on the right side of the header. PNG or SVG.</div>${btn("Change logo", { cls: "sm" })}</div></div>${field("Organization name", "Sample Insurer Ltd")}${field("Organisation type", "Insurer", { type: "select", options: ["Not set yet", "Insurer", "Broker", "Bank"], hint: "WhatsApp uses this so it does not treat every organisation as a bank. Until you choose one, it says financial institution." })}${field("Country", "Uganda")}${field("Currencies", "UGX (base)")}<div>${btn("Save details", { kind: "primary" })}</div><div class="card mt" style="border-color:#F3C1BC"><h3 style="color:var(--bad)">Danger zone</h3><p class="muted">Soft-delete this organization. Members lose access immediately. Data is retained for support recovery.</p>${field("Type the organization name to confirm", "", { ph: "Sample Insurer Ltd" })}${btn("Delete organization", { kind: "danger" })}</div>` };
+SET.products = { title: "Products", sub: "The covers sold, their documents and claim stages, and policy imports.", render: () => card("", table(["Product", "Documents", "Stages", "IRA approval", "Version"], [{ cells: ["Motor comprehensive", "8 required", "6", pill("Approved", "ok"), "v4"] }, { cells: ["Health outpatient", "5 required", "5", pill("Approved", "ok"), "v2"] }, { cells: ["Property fire", "9 required", "7", pill("Draft", ""), "v1"] }]), { flush: true, cls: "flush" }) + btn("Import policies", { icon: "upload" }) };
+SET.profile = { title: "Profile", sub: "Who you are signed in as, and the workspace you are working in.", render: () => `<div style="display:flex;gap:16px;align-items:center;margin-bottom:16px">${avatar("GT", "lg")}<div><b style="font-size:16px">Grace Tendo</b><div class="muted">Claims officer, Sample Insurer Ltd</div><div style="margin-top:8px">${btn("Change photo", { cls: "sm" })} ${btn("Remove", { cls: "sm" })}</div></div></div>${field("Full name", "Grace Tendo")}${field("Role and job title", "Claims officer")}${field("Department", "", { ph: "Claims" })}${field("Phone", "", { ph: "+256 700 000000" })}${field("Timezone", "Africa/Kampala", { ro: true })}${field("Access level", "workspace administrator", { ro: true, hint: "Your access level controls what you can do. An administrator changes it under Settings, Account seats." })}${field("Email", "grace@example.test", { ro: true })}<div class="note">${ic("lock")}<div>IIP does not store passwords for work accounts. Manage verification under Settings, Security and login.</div></div>${btn("Save profile", { kind: "primary" })}` };
+SET.governance = { title: "Governance and policies", sub: "Manage agent policies, decision matrices and risk guardrails.", render: () => `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div class="muted">Policy packages connect to workflows to enforce internal guidelines.</div>${btn("New policy", { kind: "primary", icon: "plus" })}</div>${card("Policy packages", stateBox("empty", "policy packages"))}` };
+
+/* ---------- Operator console (proposed): the Otic team, across customer accounts ---------- */
+const ACCTS = [
+  ["Sample Insurer Ltd", "Insurer", "Agent", "Active", "ok", "3 / 3", "UGX 75,000", "7 Nov"],
+  ["Northgate Brokers", "Broker", "Team", "Active", "ok", "11 / 15", "UGX 370,000", "1 Nov"],
+  ["Lakeview Microfinance", "Bank", "Enterprise", "Awaiting payment", "warn", "0 / 25", "Quote QT-0007", "-"],
+  ["Pearl General (trial)", "Insurer", "Free", "Trial", "info", "1 / 2", "UGX 0", "-"],
+  ["Savannah Life", "Insurer", "Team", "Past due", "bad", "9 / 15", "UGX 370,000", "Due 28 Oct"]
+];
+const opNote = `${note("Operator console. Shows organisation, plan, seats and billing only. It never shows claim, customer or document content, and every action is audited.")}`;
+R.operator = {
+  title: "Customer accounts", group: "Operator console", src: "new", sub: "Every customer organisation on the platform: who they are, what they pay, and where they are in onboarding.", note: "Not built. Today there is no cross-organisation view; only a WhatsApp setup queue for the publisher.",
+  acts: btn("Onboard a customer", { kind: "primary", icon: "plus", go: "operatoronboard" }),
+  render: () => `<div class="grid g4" style="margin-bottom:16px">${kpi("Active accounts", "2")}${kpi("Awaiting payment", "1")}${kpi("Past due", "1")}${kpi("Monthly recurring", "UGX 445,000")}</div>${opNote}<div style="display:flex;gap:10px;margin-bottom:12px"><label class="search">${ic("search", "sm")}<input placeholder="Search accounts"></label><select class="sel" style="width:170px"><option>All statuses</option><option>Trial</option><option>Awaiting payment</option><option>Active</option><option>Past due</option><option>Suspended</option></select></div>` +
+    card("", table(["Organisation", "Type", "Plan", "Status", "Seats", "Billing", "Last paid"], ACCTS.map(a => ({ go: "operatoraccount/" + a[0], cells: [`<b>${a[0]}</b>`, a[1], a[2], pill(a[3], a[4]), a[5], a[6], a[7]] }))), { flush: true, cls: "flush" })
+};
+R.operatoraccount = {
+  title: "Sample Insurer Ltd", group: "Operator console", src: "new", sub: "Insurer, Uganda. Workspace created 9 Oct. Agent plan.", note: "Not built.",
+  acts: btn("Change plan") + btn("Create invoice", { kind: "primary", icon: "receipt", go: "operatorinvoice/new" }) + btn("Suspend", { kind: "danger" }),
+  render: () => { const t = tabs("oa", [["ov", "Overview"], ["bill", "Billing"], ["seats", "Seats"], ["onb", "Onboarding"], ["act", "Activity"]]); const body = {
+    ov: `<div class="grid g2">${card("Organisation", `<dl class="kv"><dt>Name</dt><dd>Sample Insurer Ltd</dd><dt>Type</dt><dd>Insurer</dd><dt>Country</dt><dd>Uganda</dd><dt>Billing contact</dt><dd>finance@example.test</dd><dt>Administrator</dt><dd>grace@example.test</dd><dt>Status</dt><dd>${pill("Active", "ok")}</dd></dl>`)}${card("Subscription", `<dl class="kv"><dt>Plan</dt><dd>Agent, monthly</dd><dt>Price</dt><dd>UGX 75,000 + VAT 18%</dd><dt>Renews</dt><dd>7 Dec 2026</dd><dt>Seats</dt><dd>3 of 3</dd><dt>AI credits</dt><dd>143.5 of 2,000 used</dd></dl>`)}</div>${opNote}`,
+    bill: card("Invoices", table(["Number", "Issued", "Amount", "Status", "Paid with"], [{ go: "operatorinvoice/INV-2026-0031", cells: ["INV-2026-0031", "7 Nov", "UGX 75,000", pill("Paid", "ok"), "Flutterwave card"] }, { go: "operatorinvoice/INV-2026-0019", cells: ["INV-2026-0019", "7 Oct", "UGX 75,000", pill("Paid", "ok"), "Mobile money"] }]), { flush: true, cls: "flush" }),
+    seats: card("Seats", table(["Person", "Role", "Status"], [{ cells: ["Grace Tendo", "Workspace administrator", pill("Active", "ok")] }, { cells: ["Peter Mugisha", "Claims officer", pill("Active", "ok")] }]), { flush: true, cls: "flush" }) + btn("Resend administrator invitation"),
+    onb: card("Go-live checklist", check(true, "Invoice paid", "INV-2026-0019, 7 Oct") + check(true, "Workspace created", "9 Oct") + check(true, "Administrator invited and signed in", "9 Oct") + check(true, "Products imported", "Motor, Health") + check(false, "WhatsApp number connected", "Setup request open in the publisher queue") + check(false, "First claim processed end to end", "")),
+    act: card("Account events", list([{ t: "Invoice INV-2026-0031 paid", s: "7 Nov, Flutterwave card, confirmed with the provider" }, { t: "Seat limit reached (3 of 3)", s: "2 Nov" }, { t: "Plan changed from Free to Agent", s: "9 Oct, by the customer" }]), { flush: true, cls: "flush" }) }[t.cur]; return t.html + body; }
+};
+R.operatorinvoices = {
+  title: "Invoices", group: "Operator console", src: "new", sub: "Every invoice across customers, whether paid online or recorded by hand.", note: "Not built. Today invoices are made only when a customer pays online.",
+  acts: btn("Create invoice", { kind: "primary", icon: "plus", go: "operatorinvoice/new" }),
+  render: () => `<div class="grid g4" style="margin-bottom:16px">${kpi("Outstanding", "UGX 1.2M")}${kpi("Paid this month", "UGX 520K")}${kpi("Overdue", "UGX 370K")}${kpi("Awaiting provisioning", "1", "paid, not yet set up")}</div>` + card("", table(["Number", "Organisation", "Plan", "Amount", "Status", "Issued", "Paid with"], [
+    { go: "operatorinvoice/INV-2026-0042", cells: ["INV-2026-0042", "Lakeview Microfinance", "Enterprise", "UGX 4,200,000", pill("Open", "warn"), "6 Nov", "-"] },
+    { go: "operatorinvoice/INV-2026-0040", cells: ["INV-2026-0040", "Savannah Life", "Team", "UGX 370,000", pill("Overdue", "bad"), "28 Oct", "-"] },
+    { go: "operatorinvoice/INV-2026-0031", cells: ["INV-2026-0031", "Sample Insurer Ltd", "Agent", "UGX 75,000", pill("Paid", "ok"), "7 Nov", "Flutterwave card"] },
+    { go: "operatorinvoice/INV-2026-0030", cells: ["INV-2026-0030", "Northgate Brokers", "Team", "UGX 370,000", pill("Paid", "ok"), "1 Nov", "Bank transfer"] }]), { flush: true, cls: "flush" })
+};
+R.operatorinvoice = {
+  title: "Invoice INV-2026-0042", group: "Operator console", src: "new", sub: "Lakeview Microfinance. Enterprise plan, agreed terms.", note: "Not built. Takes the existing Invoice record (number, plan, amount, status, receipt, period) and adds operator creation, line items, tax and manual payment.",
+  acts: btn("Download PDF", { icon: "download" }) + btn("Send to customer", { icon: "mail" }) + btn("Void", { kind: "danger" }),
+  render: () => `<div class="split"><div>${card("", `<div style="display:flex;justify-content:space-between"><div><b style="font-size:16px">Invoice</b><div class="muted">INV-2026-0042 · issued 6 Nov 2026 · due 20 Nov 2026</div></div>${pill("Open", "warn")}</div><div class="grid g2 mt"><div><div class="eyebrow">From</div>Otic Group<br><span class="muted">Kampala, Uganda<br>TIN 1000000000 (sample)</span></div><div><div class="eyebrow">Bill to</div>Lakeview Microfinance<br><span class="muted">finance@example.test</span></div></div>
+  <div class="mt">${table(["Description", "Qty", "Unit", "Amount"], [{ cells: ["IIP Enterprise, monthly subscription", "1", "UGX 3,500,000", "UGX 3,500,000"] }, { cells: ["Onboarding and WhatsApp number setup (once)", "1", "UGX 100,000", "UGX 100,000"] }, { cells: ["<span class='muted'>Subtotal</span>", "", "", "UGX 3,600,000"] }, { cells: ["<span class='muted'>VAT 18%</span>", "", "", "UGX 648,000"] }, { cells: ["<b>Total due</b>", "", "", "<b>UGX 4,248,000</b>"] }])}</div>`)}
+  ${card("Timeline", list([{ t: "Invoice created by Eugene K.", s: "6 Nov, 10:02" }, { t: "Emailed to finance@example.test", s: "6 Nov, 10:03" }, { t: "Payment link opened by the customer", s: "6 Nov, 15:40" }]), { flush: true, cls: "flush" })}</div>
+  <div>${card("Collect payment", `<p class="muted" style="margin-top:0">The customer pays on Flutterwave's page, so card and phone details never touch IIP. A payment counts only after IIP asks Flutterwave for its status.</p><div class="field"><label>Payment link</label><div style="display:flex;gap:6px"><input class="in ro mono" value="https://pay.example.test/INV-2026-0042" readonly>${btn("Copy", { icon: "link" })}</div></div>${pill("Flutterwave not configured on this environment", "")}`)}
+  ${card("Record a payment received", `${field("Method", "Bank transfer", { type: "select", options: ["Bank transfer", "Mobile money", "Cheque", "Cash"] })}${field("Amount", "UGX 4,248,000")}${field("Reference", "", { ph: "Bank or mobile money reference" })}${field("Date received", "")}${btn("Record payment and issue receipt", { kind: "primary" })}<div class="faint" style="font-size:12px;margin-top:8px">Recorded by a named person and written to the audit log. A paid invoice offers Provision workspace next.</div>`)}
+  <div class="card"><b>After payment</b><p class="muted">Onboarding starts from a paid invoice.</p>${btn("Provision workspace", { kind: "primary", go: "operatoronboard" })}</div></div></div>`
+};
+R.operatoronboard = {
+  title: "Onboard a customer", group: "Operator console", src: "new", sub: "From signed deal to a working workspace, with a record of each step.", note: "Not built. Builds on the existing tenant onboarding and the Marketplace fulfilment path.",
+  render: () => { const steps = [["org", "1 Organisation"], ["plan", "2 Plan and price"], ["inv", "3 Invoice"], ["pay", "4 Payment"], ["prov", "5 Provision"], ["adm", "6 Invite administrator"], ["live", "7 Handover"]]; const cur = S.tabs.ob || "org"; const idx = steps.findIndex(s => s[0] === cur);
+    const body = { org: field("Organisation name", "Lakeview Microfinance") + `<div class="row">${field("Type", "Bank", { type: "select", options: ["Insurer", "Broker", "Bank"] })}${field("Country", "Uganda")}</div>${field("Billing contact email", "finance@example.test")}${field("Email domain", "lakeview.example", { hint: "Used to recognise colleagues who sign in later." })}`,
+      plan: `<div class="row">${field("Plan", "Enterprise", { type: "select", options: ["Free", "Agent", "Team", "Enterprise"] })}${field("Currency", "UGX", { type: "select", options: ["UGX", "USD"] })}</div><div class="row">${field("Monthly price", "3,500,000")}${field("Seats", "25")}</div>${field("One-off onboarding fee", "100,000")}${note("Catalogue plans use the catalogue price. Enterprise is agreed with the customer, so the price is entered here and kept on the invoice.")}`,
+      inv: card("", `<p class="muted" style="margin:0">Invoice INV-2026-0042 for UGX 4,248,000 including VAT 18%.</p>`) + btn("Open invoice", { go: "operatorinvoice/INV-2026-0042" }) + " " + btn("Send to customer", { kind: "primary", icon: "mail" }),
+      pay: note("Waiting for payment. Online payment is confirmed with Flutterwave. A payment by bank transfer is recorded by hand on the invoice.", true) + `<div class="mt">${pill("Awaiting payment", "warn")}</div>`,
+      prov: `<p class="muted" style="margin-top:0">Creates the organisation and workspace, sets the subscription from the paid invoice, and seeds safe defaults. No customer data is copied.</p>${check(false, "Create organisation and workspace")}${check(false, "Set subscription and allowances from the invoice")}${check(false, "Apply default agent policy and kill switches")}${check(false, "Choose where customer data lives", "Managed in IIP, or the customer's Fabric workspace")}`,
+      adm: `${field("Administrator email", "ops@lakeview.example")}${field("Role", "Workspace administrator", { ro: true })}${btn("Send invitation", { kind: "primary", icon: "mail" })}`,
+      live: card("Go-live checklist", check(false, "WhatsApp number request opened") + check(false, "Products imported") + check(false, "First claim processed end to end") + check(false, "Handover call held")) }[cur];
+    return `<div class="steps">${steps.map((s, i) => `<div class="${s[0] === cur ? "cur" : i < idx ? "done" : ""}" data-tab="ob:${s[0]}" style="cursor:pointer">${s[1]}</div>`).join("")}</div>${opNote}${card(steps[idx][1].slice(2), body)}<div style="display:flex;justify-content:space-between">${btn("Back", { cls: idx === 0 ? "off" : "" })}${btn(idx === steps.length - 1 ? "Finish" : "Continue", { kind: "primary" })}</div>`; }
+};
+R.operatorbilling = {
+  title: "Billing setup", group: "Operator console", src: "new", sub: "How Otic collects money: the payment provider, the plan catalogue, tax and invoice rules.", note: "Not built. Today the catalogue is the INSURANCEINTELLIGENCE_PLAN_CATALOGUE setting and Flutterwave keys are app settings.",
+  render: () => { const t = tabs("ob2", [["pay", "Payment provider"], ["plans", "Plans and prices"], ["tax", "Tax and invoices"]]); return t.html + (t.cur === "pay" ? card("Flutterwave", `<div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">${pill("Not configured", "")}<span class="muted">Hosted card page and mobile money. Card and phone details never touch IIP.</span></div>${field("Mode", "Test", { type: "select", options: ["Test", "Live"] })}${field("Secret key", "", { ph: "Write-only. Never shown again." })}${field("Webhook secret hash", "", { ph: "Write-only." })}${field("Webhook address", "https://api.example.test/api/v1/payments/callback/...", { ro: true, hint: "Paste this into Flutterwave. Each payment has its own secret in the address." })}<div style="display:flex;gap:8px">${btn("Validate and save", { kind: "primary" })}${btn("Send a test payment link")}</div>`) + card("Other ways to be paid", list([{ t: "Bank transfer", s: "Details printed on invoices. Recorded by hand.", end: toggle("bt", true) }, { t: "Mobile money direct", s: "MTN and Airtel through the payment provider.", end: toggle("mm", false) }]), { flush: true, cls: "flush" })
+    : t.cur === "plans" ? card("", table(["Plan", "UGX / month", "USD / month", "Claims", "Seats", "Self-serve"], PLANS.map(p => ({ cells: [`<b>${p[0]}</b>`, `<input class="in" value="${p[2]}" style="width:120px">`, `<input class="in" value="${p[3]}" style="width:80px">`, p[4].split(",")[0], p[4].split(",")[1] || "Custom", toggle("ss" + p[0], p[0] !== "Enterprise")] }))), { flush: true, cls: "flush" }) + `<div class="mt">${btn("Save catalogue", { kind: "primary" })}</div>`
+    : card("Tax and invoices", `<div class="row">${field("VAT rate", "18%")}${field("Our TIN", "")}</div><div class="row">${field("Invoice number format", "INV-{year}-{sequence}")}${field("Payment terms", "14 days", { type: "select", options: ["Due on receipt", "7 days", "14 days", "30 days"] })}</div>${field("Bank transfer details", "Bank, account name, account number, branch", { type: "area" })}${field("Invoice footer", "Thank you for choosing IIP.", { type: "area" })}${btn("Save", { kind: "primary" })}`)); }
+};
+
+/* sub-navigation shared by every operator screen */
+const OPNAV = [["operator", "Accounts"], ["operatorinvoices", "Invoices"], ["operatoronboard", "Onboard a customer"], ["operatorbilling", "Billing setup"]];
+Object.keys(R).filter(k => k.startsWith("operator")).forEach(k => {
+  const inner = R[k].render;
+  const parent = { operatoraccount: "operator", operatorinvoice: "operatorinvoices" }[k] || k;
+  R[k].render = (p) => `<div class="tabs" role="navigation" aria-label="Operator console">${OPNAV.map(([r, l]) => `<button class="${r === parent ? "on" : ""}" data-go="${r}">${l}</button>`).join("")}</div>` + inner(p);
+});
+
+boot();
+
+
+</script>
+</body>
+</html>

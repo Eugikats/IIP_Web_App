@@ -2,7 +2,7 @@
 
 > Generated from Git-tracked documentation by `scripts/docs/Update-IipDocsCatalog.ps1`. Do not hand-edit.
 
-Total: 474 files.
+Total: 475 files.
 
 ## [docs-root] (9)
 
@@ -295,7 +295,7 @@ Total: 474 files.
 - [iip_product_feedback_review_cadence.md](08-continuous-improvement/iip_product_feedback_review_cadence.md)
 - [iip_release_improvement_tracker.md](08-continuous-improvement/iip_release_improvement_tracker.md)
 
-## 08-program-plan (35)
+## 08-program-plan (36)
 
 - [CODEX-HANDOVER-PROMPT.md](08-program-plan/CODEX-HANDOVER-PROMPT.md)
 - [BACKLOG.md](08-program-plan/consolidation-data/BACKLOG.md)
@@ -310,6 +310,7 @@ Total: 474 files.
 - [iip_phase11_commercial_module_activation_gate.md](08-program-plan/iip_phase11_commercial_module_activation_gate.md)
 - [IIP_PRODUCTION_BUILD_CONTRACT.md](08-program-plan/IIP_PRODUCTION_BUILD_CONTRACT.md)
 - [IIP_SYSTEM_ANALYSIS_AND_PRODUCTION_PLAN.md](08-program-plan/IIP_SYSTEM_ANALYSIS_AND_PRODUCTION_PLAN.md)
+- [IIP-AGENTIC-INTENT-SUGGESTIONS-AND-AUTOMATION-RESEARCH-2026-11-07.md](08-program-plan/IIP-AGENTIC-INTENT-SUGGESTIONS-AND-AUTOMATION-RESEARCH-2026-11-07.md)
 - [IIP-BANCASSURANCE-QR-TO-WHATSAPP-CAMPAIGN-BUILD-BRIEF.md](08-program-plan/IIP-BANCASSURANCE-QR-TO-WHATSAPP-CAMPAIGN-BUILD-BRIEF.md)
 - [IIP-BEVAYA-PARITY-RELEASE-BLUEPRINT.md](08-program-plan/IIP-BEVAYA-PARITY-RELEASE-BLUEPRINT.md)
 - [IIP-BRANCH-AND-LIVE-RECONCILIATION-AUDIT-2026-11-03.md](08-program-plan/IIP-BRANCH-AND-LIVE-RECONCILIATION-AUDIT-2026-11-03.md)
