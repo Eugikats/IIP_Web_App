@@ -2,7 +2,7 @@
 
 > Generated from Git-tracked documentation by `scripts/docs/Update-IipDocsCatalog.ps1`. Do not hand-edit.
 
-Total: 473 files.
+Total: 474 files.
 
 ## [docs-root] (9)
 
@@ -163,7 +163,7 @@ Total: 473 files.
 - [bevaya-design-language.md](03-design-architecture/reference/bevaya-design-language.md)
 - [ui-migration-ledger.md](03-design-architecture/ui-migration-ledger.md)
 
-## 04-testing-security-quality (20)
+## 04-testing-security-quality (21)
 
 - [iip_ai_output_evaluation_red_team_test_plan.md](04-testing-security-quality/iip_ai_output_evaluation_red_team_test_plan.md)
 - [iip_ai_quality_review_log.md](04-testing-security-quality/iip_ai_quality_review_log.md)
@@ -182,6 +182,7 @@ Total: 473 files.
 - [iip_release_1_assessor_handoff_threat_assessment.md](04-testing-security-quality/iip_release_1_assessor_handoff_threat_assessment.md)
 - [iip_security_compliance_document.md](04-testing-security-quality/iip_security_compliance_document.md)
 - [iip_security_test_checklist_validation_plan.md](04-testing-security-quality/iip_security_test_checklist_validation_plan.md)
+- [IIP_VS_CIP_SECURITY_ARCHITECTURE_COMPARISON.md](04-testing-security-quality/IIP_VS_CIP_SECURITY_ARCHITECTURE_COMPARISON.md)
 - [iip-customer-tenant-threat-model.md](04-testing-security-quality/iip-customer-tenant-threat-model.md)
 - [intake_and_document_checker_status_report_2026-09-05.md](04-testing-security-quality/intake_and_document_checker_status_report_2026-09-05.md)
 - [local-language-review-sheet.md](04-testing-security-quality/local-language-review-sheet.md)
