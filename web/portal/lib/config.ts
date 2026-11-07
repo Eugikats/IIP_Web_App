@@ -23,6 +23,16 @@ export const entraClientId =
 export const entraApiScope = process.env.NEXT_PUBLIC_ENTRA_API_SCOPE || "";
 export const entraRedirectUri = process.env.NEXT_PUBLIC_ENTRA_REDIRECT_URI || "";
 
+/** "organizations" lets work accounts from any company sign in (the SaaS product); otherwise only IIP's own
+ *  directory. Needs the app registration set to accept accounts from any organisation. */
+export const entraAuthorityTenant = process.env.NEXT_PUBLIC_ENTRA_AUTHORITY_TENANT || entraTenantId;
+
+/** Entra External ID, for Google and email-code sign-in (as CIP). For example
+ *  https://contoso.ciamlogin.com/{tenant-id}. Absent: only Microsoft work accounts can sign in. */
+export const externalIdAuthority = (process.env.NEXT_PUBLIC_EXTERNAL_ID_AUTHORITY || "").replace(/\/$/, "");
+export const externalIdClientId = process.env.NEXT_PUBLIC_EXTERNAL_ID_CLIENT_ID || "";
+export const externalIdApiScope = process.env.NEXT_PUBLIC_EXTERNAL_ID_API_SCOPE || "";
+
 export const isDevelopmentAuth = authMode.toLowerCase() === "development";
 export const isDeployedRuntime = ["staging", "production", "managedapplicationreviewer"].includes(
   runtimeProfile.toLowerCase()
@@ -31,6 +41,8 @@ export const isDemonstrationRuntime = runtimeProfile.toLowerCase() === "demo";
 export const canUseLocalTestDoubles = !isDeployedRuntime && isDevelopmentAuth;
 export const canUseEntraBrowserAuth =
   !isDevelopmentAuth && Boolean(entraTenantId && entraClientId && entraApiScope);
+export const canUseExternalIdSignIn =
+  !isDevelopmentAuth && Boolean(externalIdAuthority && externalIdClientId && externalIdApiScope);
 
 let apiAccessToken = "";
 
@@ -153,6 +165,14 @@ export function scopedHeaders(role = "ClaimsOfficer", userId = ""): Record<strin
     // and fails closed if they don't belong to it (never client-side scope substitution).
     if (workspaceOverride) {
       headers[requestedWorkspaceHeaderName] = workspaceOverride;
+    }
+
+    // The organisation (a demonstration world, or one of several the person belongs to) is a hint too: the
+    // membership store confirms the person belongs to it, and the API fails closed if they do not.
+    // Without it the world switch changes the screen but every request still reads the home organisation.
+    const organisationOverride = getActiveOrganisationOverride();
+    if (organisationOverride) {
+      headers["X-Organisation-Id"] = organisationOverride;
     }
   }
 

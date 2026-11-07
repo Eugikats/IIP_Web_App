@@ -37,6 +37,16 @@ Clear the 27-point checklist in `docs/03-design-architecture/iip_ui_craft_guardr
 - Never weaken protected-runtime validation, security, tenant isolation, evidence grounding or human authority to make a check pass.
 - Use current code, CI and owning documents for routes, UI, providers, deployment and release truth; do not rely on catalogs copied into prompts or historical files.
 
+## Where work goes: main first
+
+There is no DevOps pipeline, so a push to `main` is not destructive, and feature branches that are never reconciled are what caused the 2026 consolidation. So:
+
+1. Put work on `main`. Commit and push to `main` by default (after the checks in "Validation and completion" pass).
+2. Do not open a feature branch for a normal feature or fix. Create one only when the owner asks, or when the work genuinely cannot land on `main` yet (a long experiment, a risky migration).
+3. When you do put work on a feature branch, tell the owner at once, in the same message: the branch name, why it is not on `main`, and what it takes to merge it. Never leave a branch unreported.
+4. Before ending a task, check that no branch of yours holds work that `main` lacks. Merge it, or report it.
+5. A port or merge must never rewrite a whole file from one lineage over another. Compare the result with the live lineage (`git diff --numstat <live> HEAD`) and look at every file whose deletions outweigh its additions: the 2026-11-06 port commits silently removed about 150 routes and the sign-in page this way.
+
 ## Documentation before every commit of a major build
 
 Updating the documentation is part of finishing a major build, not a follow-up. Do it before the commit, in the same commit, without being asked. A major build is a new or changed feature, route or API contract, migration, configuration or environment variable, provider, user-visible surface, security or tenant rule, edition boundary, deployment or release, or a consolidation phase.

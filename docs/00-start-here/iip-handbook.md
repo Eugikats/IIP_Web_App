@@ -2,7 +2,7 @@
 
 > Status: Active
 > Owner: Platform Engineering
-> Last reviewed: 2026-11-06
+> Last reviewed: 2026-11-07
 > Purpose: the one file a new developer reads. It states what IIP is, how it is built, how to run, test and deploy it, the rules that are never waived, and where the code and the evidence stand today. It condenses the ~430 files under `docs/`; when a detail matters beyond this file, section 17 says which document owns it.
 
 How to use it: read sections 1 to 4 (including the agent and orchestration architecture in 4.4 to 4.6) on day one, run the system with section 7, and keep sections 9 to 12 open while you work. Everything here was checked against the repository and its branches on 2026-11-03. Where a statement describes a branch that has not been merged yet, it says so.
@@ -247,6 +247,8 @@ Never commit a secret. Outside local development, secrets come from Key Vault or
 | `Azure__KeyVaultUri`, `Azure__TenantId` | Key Vault and Entra tenant |
 | `NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_AUTH_MODE`, `NEXT_PUBLIC_TENANT_ID`, `NEXT_PUBLIC_WORKSPACE_ID`, `NEXT_PUBLIC_LOCAL_USER_ID` | Portal build-time values; the first two plus the Entra ones are baked into the build |
 | `NEXT_PUBLIC_ENTRA_TENANT_ID`, `..._CLIENT_ID`, `..._API_SCOPE`, `..._REDIRECT_URI` | Portal Entra sign-in |
+| `NEXT_PUBLIC_EXTERNAL_ID_AUTHORITY`, `..._CLIENT_ID`, `..._API_SCOPE` | Optional. Entra External ID for "Continue with Google" and "Sign in with email". Absent, the two buttons show but are disabled with a note (not configured on dev; needs an External ID app registration) |
+| `NEXT_PUBLIC_ENTRA_AUTHORITY_TENANT` | Optional. `organizations` lets work accounts from any company sign in |
 | `NEXT_PUBLIC_VISUAL_PARITY_MODE` | Development fixtures only; must be unset or `false` in every deployed build |
 
 Two environment guides in `docs/05-deployment-release-enablement/` are still Draft and list generic keys (`ConnectionStrings__IipSql`, `AzureOpenAI__*`, `WhatsApp__*`); trust the validator and the code over them.
@@ -343,12 +345,12 @@ Only one subscription holds IIP resources: "Microsoft Azure Sponsorship", `5f576
 | API App Service | `app-api-dev-h5girbnzrayqe` (`/health`) |
 | Portal App Service | `app-portal-dev-h5girbnzrayqe` (Next.js standalone, Node 20) |
 | Function App | `func-iip-dev-h5girbnzrayqe` |
-| Plan | `asp-iip-dev` (B1; raised to P1v3 only for a presentation, then reset) |
+| Plan | `asp-iip-dev` (B1 is too small for the API, the portal and the Functions app together: at 100% CPU the API answered in minutes. Raised to P1v3 on 2026-11-07 for testing and recording; reset to B1 afterwards only once the per-message database scan is fixed and the Functions app is off the shared plan) |
 | SQL | `sql-dev-h5girbnzrayqe`, database `insuranceintelligence` |
 | Storage, Service Bus, AI Search, OpenAI, Document Intelligence | `stiiph5girbnzrayqe`, `sb-dev-...`, `srch-dev-...`, `oai-iip-dev-...`, `di-iip-dev-...` |
 | Key Vault | `kv-iip-dev-zcxolwov` (RBAC mode) |
 | Telemetry | `log-dev-...`, `appi-dev-...` |
-| Translation | Container Apps environment `cae-iip-dev`, app `ca-afrislm-dev`, model on a file share |
+| Translation | Sunbird, configured per workspace as a saved connection. The AfriSLM container (`ca-afrislm-dev`) was deleted on 2026-11-07 and `INSURANCEINTELLIGENCE_TRANSLATION_PROVIDER` is `Disabled`, so a workspace without a Sunbird connection has no translation and fails fast. The empty Container Apps environment `cae-iip-dev` remains |
 
 `rg-iip-stg` is empty on purpose: the staging resources were deleted out of band around 2026-07-03, and the Sponsored subscription could not create an App Service Plan or an Azure OpenAI resource when last tried. Confirm live with `az` before deploying; resources here have been deleted or renamed out of band before.
 

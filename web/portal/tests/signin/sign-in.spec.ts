@@ -13,7 +13,7 @@ test("Continue with Microsoft from the sign-in page ends on the dashboard, not b
   await expect(page).toHaveURL(/\/app(\?|$|#)/, { timeout: 30_000 });
   await expect(page.getByText("Verifying your access")).toHaveCount(0, { timeout: 30_000 });
   await expect(page.getByRole("button", { name: "Settings", exact: true }).first()).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText("Sign in to IIP")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Continue with Microsoft/ })).toHaveCount(0);
   expect(seen.authorizeVisits).toBe(1);
   expect(seen.apiCalls).toContain("GET /api/v1/me");
 });
@@ -34,4 +34,21 @@ test("A person who signs in but belongs to no organisation is sent to set one up
   await page.getByRole("button", { name: /Continue with Microsoft/ }).click();
 
   await expect(page).toHaveURL(/\/welcome/, { timeout: 30_000 });
+});
+
+test("The sign-in page shows the Microsoft and Google marks and tells the truth about what is not set up", async ({ page }) => {
+  await installStandIn(page);
+
+  await page.goto("/login");
+
+  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+  const microsoft = page.getByRole("button", { name: /Continue with Microsoft/ });
+  await expect(microsoft).toBeVisible();
+  await expect(microsoft.locator("svg")).toHaveCount(1);
+  const google = page.getByRole("button", { name: /Continue with Google/ });
+  await expect(google).toBeVisible();
+  await expect(google.locator("svg")).toHaveCount(1);
+  // External ID is not configured in the test build, so Google and email are shown but cannot be pressed.
+  await expect(google).toBeDisabled();
+  await expect(page.getByText("Google and email sign-in are not set up for this environment.")).toBeVisible();
 });
