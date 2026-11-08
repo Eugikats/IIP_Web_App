@@ -47,6 +47,23 @@ There is no DevOps pipeline, so a push to `main` is not destructive, and feature
 4. Before ending a task, check that no branch of yours holds work that `main` lacks. Merge it, or report it.
 5. A port or merge must never rewrite a whole file from one lineage over another. Compare the result with the live lineage (`git diff --numstat <live> HEAD`) and look at every file whose deletions outweigh its additions: the 2026-11-06 port commits silently removed about 150 routes and the sign-in page this way.
 
+## Two repositories: the organisation original and a personal mirror
+
+Work is kept in two GitHub repositories. Treat them as follows:
+
+| Remote name | Repository | Role |
+|---|---|---|
+| `org` | `https://github.com/Otic-Group/IIP_Web_App.git` | The original. Source of truth. |
+| `mirror` | `https://github.com/Eugikats/IIP_Web_App.git` | The owner's personal mirror. It should only ever receive what is already on `org/main`. |
+
+Rules:
+
+1. **Always pull from the mirror first.** Before pushing, and at the start of any task that will push, run `git fetch org main` and `git fetch mirror main`. The owner must have no commits on the mirror that `org/main` lacks, so check `git log org/main..mirror/main --oneline`. If it prints anything, stop and report those commits to the owner. Do not overwrite or force-push over them, and do not merge them without the owner's say-so.
+2. **Push to both.** After the work is on `org/main`, push the same commit to the mirror: `git push mirror <commit>:refs/heads/main`. Never push to the mirror first, and never push anything to the mirror that is not already on `org/main`. A mirror push is a plain fast-forward: never use `--force`.
+3. **Report both.** The completion report names the commit each remote now holds. If the mirror push fails or is skipped, say so. Do not claim the mirror is current.
+4. If the `mirror` remote is missing in a checkout, add it with `git remote add mirror https://github.com/Eugikats/IIP_Web_App.git`.
+5. The mirror needs the full history, and a first push is large (about 200 MB), so run it in the background and wait for it to finish rather than giving up on a timeout.
+
 ## Documentation before every commit of a major build
 
 Updating the documentation is part of finishing a major build, not a follow-up. Do it before the commit, in the same commit, without being asked. A major build is a new or changed feature, route or API contract, migration, configuration or environment variable, provider, user-visible surface, security or tenant rule, edition boundary, deployment or release, or a consolidation phase.
