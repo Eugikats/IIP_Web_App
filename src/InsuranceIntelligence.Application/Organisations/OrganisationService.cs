@@ -133,6 +133,15 @@ public sealed class OrganisationService(
             mine.Add(new MyOrganisation(organisation.OrganisationId, organisation.Name, organisation.Type, membership.WorkspaceId, membership.RoleCodes, "Member"));
         }
 
+        // A workspace the person belongs to that has no organisation record (the one an account had before organisations
+        // existed, often the one that owns a connected WhatsApp number). Left out, a person who set up a demonstration
+        // would be offered only the demonstrations and could not get back to their own workspace.
+        var known = direct.Select(o => o.OrganisationId).ToHashSet(StringComparer.Ordinal);
+        foreach (var membership in memberships.Where(m => !known.Contains(m.OrganisationId)))
+        {
+            mine.Add(new MyOrganisation(membership.OrganisationId, "Your own workspace", OrganisationType.Insurer, membership.WorkspaceId, membership.RoleCodes, "Member"));
+        }
+
         // Insurers a broker the user belongs to works with: reachable, as a broker, while the link stands.
         foreach (var broker in direct.Where(o => o.IsActive && o.Type == OrganisationType.Broker))
         {

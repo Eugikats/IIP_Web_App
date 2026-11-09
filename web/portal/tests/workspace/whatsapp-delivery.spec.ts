@@ -26,7 +26,7 @@ async function openWhatsApp(page: Page, receipts: unknown) {
       },
     }));
 
-  await page.goto("/app");
+  await page.goto("/app/workspace");
   await page.getByRole("button", { name: "Settings", exact: true }).first().click();
   const dialog = page.getByRole("dialog", { name: "Settings" });
   await dialog.getByRole("button", { name: "Integrations" }).first().click();

@@ -45,6 +45,25 @@ public sealed class OrganisationTests : IDisposable
     }
 
     [Fact]
+    public async Task AWorkspaceWithNoOrganisationRecord_IsStillOfferedAlongsideADemonstration()
+    {
+        // An account that predates organisations (it owns the connected WhatsApp number) later sets up a demonstration.
+        db.UserTenantMemberships.Add(new UserTenantMembershipEntity { Id = Guid.NewGuid(), TenantId = "tenant-home", WorkspaceId = "workspace-operations", UserId = "harry", IsActive = true });
+        db.RoleAssignments.Add(new RoleAssignmentEntity { Id = Guid.NewGuid(), TenantId = "tenant-home", WorkspaceId = "workspace-operations", UserId = "harry", RoleCode = "Admin" });
+        await db.SaveChangesAsync();
+        var demonstration = await NewInsurerAsync("harry", "Mavuno Bank (demonstration)");
+
+        var mine = await service.ListMineAsync("harry");
+
+        Assert.Equal(2, mine.Count);
+        var home = Assert.Single(mine, m => m.OrganisationId == "tenant-home");
+        Assert.Equal("Your own workspace", home.Name);
+        Assert.Equal("workspace-operations", home.WorkspaceId);
+        Assert.Contains("Admin", home.Roles);
+        Assert.Contains(mine, m => m.OrganisationId == demonstration.OrganisationId);
+    }
+
+    [Fact]
     public async Task ANameThatIsTooShort_OrAnAccountThatKeepsCreatingOrganisations_IsRefused()
     {
         await Assert.ThrowsAsync<OrganisationException>(() => service.CreateAsync("u", "A", OrganisationType.Broker, "c"));

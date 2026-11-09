@@ -19,24 +19,24 @@ test.beforeEach(async ({ page }) => {
 
 test("The sidebar groups its destinations and keeps them reachable in a short window", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 520 });
-  await page.goto("/app");
+  await page.goto("/app/workspace");
   const sidebar = page.getByRole("complementary", { name: SIDEBAR });
 
-  for (const label of ["Work", "Data", "Manage"]) {
+  for (const label of ["Work", "Manage"]) {
     await expect(sidebar.getByText(label, { exact: true })).toBeVisible();
   }
-  await expect(sidebar.getByRole("link", { name: "Command Center" })).toBeVisible();
+  await expect(sidebar.getByRole("link", { name: "Workspace" })).toBeVisible();
   await expect(sidebar.getByRole("link", { name: "Claims" })).toBeVisible();
-  // The Academy is one click away, directly under Inbox, not tucked into the profile menu.
+  // The Academy is one click away in the Work group (Approvals sits between it and Inbox), not tucked into the profile menu.
   const inbox = await sidebar.getByRole("link", { name: "Inbox" }).boundingBox();
   const academy = await sidebar.getByRole("link", { name: "IIP Academy" }).boundingBox();
-  expect(inbox && academy && academy.y > inbox.y && academy.y - inbox.y < 60).toBe(true);
+  expect(inbox && academy && academy.y > inbox.y && academy.y - inbox.y < 100).toBe(true);
   await expect(sidebar.getByRole("button", { name: "Integrations" })).toBeVisible();
   await expect(sidebar.getByRole("button", { name: "Settings" })).toBeVisible();
 });
 
 test("Recent chats can be collapsed, and stays collapsed after a reload", async ({ page }) => {
-  await page.goto("/app");
+  await page.goto("/app/workspace");
   const sidebar = page.getByRole("complementary", { name: SIDEBAR });
   const toggle = sidebar.getByRole("button", { name: /Recent chats/ });
 
