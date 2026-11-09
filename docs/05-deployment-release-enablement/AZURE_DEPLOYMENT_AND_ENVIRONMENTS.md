@@ -450,3 +450,11 @@ Added after deploying `main` (`0e670b1a`) to dev. They apply to the API and the 
 - **Keep a zip of the build being replaced.** It restored dev twice in one day.
 - **Probe, do not assume.** After a deploy, call every parameterless GET route with a signed-in token and look for 404 (route missing) and 5xx. Do it sequentially or with at most two at a time; six in parallel made the small server return errors.
 - **The Functions worker was not redeployed** and is still the 14 September build.
+
+## 2026-11-09 deployment lessons
+
+- **Zip with PowerShell 7 (`pwsh`), never Windows PowerShell 5.1.** `ZipFile.CreateFromDirectory` in 5.1 stores entry names with backslashes. On the Linux App Service they unpack as files whose names contain the backslashes (for example a file literally called `runtimes\unix\lib\net6.0\Microsoft.Data.SqlClient.dll`), so the real SQL driver is missing and every signed-in route returns 500 while `/health` stays green. Before uploading, check that no entry name contains a backslash.
+- **Clear the portal route cache after every portal deploy, then restart.** Run `rm -rf /home/site/wwwroot/.next/server/route-cache` through the Kudu command API (`POST https://app-portal-dev-h5girbnzrayqe.scm.azurewebsites.net/api/command` with an `az account get-access-token` bearer). Until then the previous build's pages keep being served. Confirm that the chunk names in the served `/app/workspace` HTML exist in the new build's `.next/static`.
+- **`az webapp restart` returns before the new process serves.** Poll until the marker you expect appears; do not stop at the first 200.
+- **An account holding a demonstration plus its original workspace** gets 403 on requests that carry no organisation hint, because the API will not guess. The portal's organisation picker lists every workspace; the original one shows as "Your own workspace" (fixed 2026-11-09, before which it was missing from the list and the number's workspace could not be selected).
+- **Application errors** are in Application Insights (`az monitor app-insights query --app appi-dev-h5girbnzrayqe -g rg-iip-dev --analytics-query "exceptions | take 5"`), not in the container log files.
