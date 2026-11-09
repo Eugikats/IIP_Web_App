@@ -122,7 +122,8 @@ export const ROUTE_ACCESS: RouteAccessRule[] = [
   { path: "/app/documents", requiredAny: ["ViewAllClaims"] },
   { path: "/app/communications", requiredAny: ["ViewAssignedClaims", "ViewAllClaims"] },
   { path: "/app/acquisition", requiredAny: ["ViewSalesLeads"] },
-  { path: "/app/workspace", requiredAny: ["ViewSalesLeads"] },
+  // The workspace is the staff landing surface. Its tools and data remain individually permission-gated.
+  { path: "/app/workspace", requiredAny: [] },
   { path: "/app/policy", requiredAny: ["ViewAiOutputs", "ManageKnowledgeBase"] },
   { path: "/app/retention", requiredAny: ["ViewCustomers"] },
   { path: "/app/fraud", requiredAny: ["ViewFraudSignals"] },
@@ -167,7 +168,7 @@ export const ROUTE_ACCESS: RouteAccessRule[] = [
   { path: "/academy", requiredAny: [] },
   { path: "/app/assistant", requiredAny: ["ViewCommandCenter"] },
   { path: "/app/brief", requiredAny: ["ViewCommandCenter"] },
-  { path: "/app", requiredAny: ["ViewCommandCenter"], exact: true },
+  { path: "/app", requiredAny: [], exact: true },
 ];
 
 export function canAccessWithPermissions(permissions: readonly string[], path: string): boolean {
@@ -180,7 +181,7 @@ export function canAccessWithPermissions(permissions: readonly string[], path: s
 
 export function firstAccessibleRoute(permissions: readonly string[]): string | null {
   const preferred = [
-    "/app", "/app/claims", "/app/channels", "/app/work-items", "/app/customers",
+    "/app/workspace", "/app", "/app/claims", "/app/channels", "/app/work-items", "/app/customers",
     "/app/documents", "/app/communications", "/app/knowledge", "/app/audit",
     "/app/integrations", "/app/admin",
   ];
@@ -189,32 +190,32 @@ export function firstAccessibleRoute(permissions: readonly string[]): string | n
 
 export const ROLES: Record<Role, RoleDef> = {
   Admin: {
-    key: "Admin", label: "Workspace Administrator", title: "Workspace Administrator", landing: "/app",
+    key: "Admin", label: "Workspace Administrator", title: "Workspace Administrator", landing: "/app/workspace",
   },
   ClaimsOfficer: {
-    key: "ClaimsOfficer", label: "Claims Officer", title: "Claims Officer", landing: "/app/claims",
+    key: "ClaimsOfficer", label: "Claims Officer", title: "Claims Officer", landing: "/app/workspace",
   },
   ClaimsSupervisor: {
     key: "ClaimsSupervisor", label: "Claims Supervisor", title: "Claims Supervisor",
-    landing: "/app/work-items",
+    landing: "/app/workspace",
   },
   CustomerService: {
-    key: "CustomerService", label: "Customer Service", title: "Customer Service", landing: "/app/channels",
+    key: "CustomerService", label: "Customer Service", title: "Customer Service", landing: "/app/workspace",
   },
   Broker: {
-    key: "Broker", label: "Broker", title: "Broker", landing: "/app/claims/new",
+    key: "Broker", label: "Broker", title: "Broker", landing: "/app/workspace",
   },
   Compliance: {
-    key: "Compliance", label: "Compliance Officer", title: "Compliance Officer", landing: "/app/audit",
+    key: "Compliance", label: "Compliance Officer", title: "Compliance Officer", landing: "/app/workspace",
   },
   KnowledgeManager: {
-    key: "KnowledgeManager", label: "Knowledge Manager", title: "Knowledge Manager", landing: "/app/knowledge",
+    key: "KnowledgeManager", label: "Knowledge Manager", title: "Knowledge Manager", landing: "/app/workspace",
   },
   ITAdmin: {
-    key: "ITAdmin", label: "IT Administrator", title: "IT Administrator", landing: "/app/integrations",
+    key: "ITAdmin", label: "IT Administrator", title: "IT Administrator", landing: "/app/workspace",
   },
   PublisherSupport: {
-    key: "PublisherSupport", label: "Publisher Support Engineer", title: "Publisher Support Engineer", landing: "/app",
+    key: "PublisherSupport", label: "Publisher Support Engineer", title: "Publisher Support Engineer", landing: "/app/workspace",
   },
 };
 

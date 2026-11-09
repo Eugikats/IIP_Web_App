@@ -1,10 +1,7 @@
-import { Suspense } from "react";
-import Component from "@/lovable-pages/Brief";
+"use client";
+
+import { Navigate } from "@/components/iip/NextRouterCompat";
 
 export default function Page() {
-  return (
-    <Suspense fallback={null}>
-      <Component />
-    </Suspense>
-  );
+  return <Navigate to="/app/workspace" replace />;
 }

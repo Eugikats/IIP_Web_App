@@ -7,7 +7,7 @@ Read this before changing anything a user can see. It is the entry point; the fo
 | Document | Owns | Read it when |
 |---|---|---|
 | [`docs/03-design-architecture/iip_design_language_v2.md`](docs/03-design-architecture/iip_design_language_v2.md) | Tokens, colour, type, spacing, radius, elevation, motion, shell geometry, ~25 component contracts, migration map | Changing how anything looks |
-| [`docs/03-design-architecture/iip_ux_cognitive_load_and_navigation_model.md`](docs/03-design-architecture/iip_ux_cognitive_load_and_navigation_model.md) | Navigation model, the chat-first landing, chat-to-work handoff, progressive disclosure, toast and interruption policy, forms | Adding a screen, a destination, or any notification |
+| [`docs/03-design-architecture/iip_ux_cognitive_load_and_navigation_model.md`](docs/03-design-architecture/iip_ux_cognitive_load_and_navigation_model.md) | Navigation model, the workspace landing, chat-to-work handoff, progressive disclosure, toast and interruption policy, forms | Adding a screen, a destination, or any notification |
 | [`docs/03-design-architecture/iip_workflow_legibility_contract.md`](docs/03-design-architecture/iip_workflow_legibility_contract.md) | The claim lifecycle as rendered: stage map, completeness display, evidence and confidence, the human-decision boundary, the product-wide status vocabulary | Rendering a claim, work item, document, or agent output |
 | [`docs/03-design-architecture/iip_ui_craft_guardrails.md`](docs/03-design-architecture/iip_ui_craft_guardrails.md) | The craft floor: banned patterns, the emoji ban, copy rules, the 27-point pre-merge checklist, automated enforcement | Before opening any UI pull request |
 
@@ -15,7 +15,7 @@ Visual reference for the language: [`docs/03-design-architecture/reference/bevay
 
 ## The direction, in short
 
-A calm, border-led, light-first insurance operations console. One blue accent (`#1769FF`, the same blue as the CIP platform) used only to mark the next action. Inter throughout. Hairline borders instead of shadows. Colour rationed to 6px status dots and single figures. A 64px icon rail, a contextual panel, and a left-aligned content column. It should read as **a precise instrument, not a product tour.**
+A calm, border-led, light-first insurance operations console. One blue accent (`#1769FF`, the same blue as the CIP platform) used only to mark the next action. Inter throughout, with an expressive workspace greeting. Hairline borders instead of shadows. Colour rationed to 6px status dots and single figures. An 80px collapsed icon rail, a contextual panel, and a left-aligned content column. It should read as **a precise instrument, not a product tour.**
 
 ## Accent colour decision (2026-10-07)
 
@@ -37,7 +37,7 @@ IIP is CIP's sister product and shares its look, so the accent changed from viol
 
 ## Where things live
 
-- Landing screen is the **Brief** at `/app` — at most five ranked items from real fields (document completeness, working days against the product's service standard, value at stake, risk signals, customer wait time), each with a one-sentence reason and one primary action, plus a "Handled for you" list. Honestly empty when nothing needs the person. The Assistant moved to `/app/assistant`; chat is a persistent bar available on every screen (navigation model §6, revised).
+- Landing screen is the **Workspace** at `/app/workspace`. It greets the signed-in staff member, links only to queues their permissions allow, and retains the Kato acquisition workbook, chart and export workflow for authorized staff. The Brief remains at `/app/brief`; the Assistant is at `/app/assistant` and persisted conversations reopen from Recent chats. Queue counts appear only when supplied by permitted live data.
 - The icon rail groups destinations rather than capping them at seven; see navigation model §5.2 (amended 2026-09-11) for why and §6 for the landing decision.
 - Toasts are rare and governed: off-screen, this user's work, actionable now, not already shown. Everything else is a badge, an inline message, or the notification bell. Navigation model §8.
 

@@ -2,9 +2,9 @@
 
 | Field | Value |
 |---|---|
-| Version | 1.1 (§5.2 amended 2026-09-11; §6 revised 2026-09-22, chat-first landing replaced by the brief-first landing) |
+| Version | 1.2 (§5.2 amended 2026-09-11; §6 revised 2026-11-08, brief-first landing replaced by the workspace landing) |
 | Date | 2026-09-08 |
-| Status | **Approved interaction direction.** Owns the shell navigation model, the brief-first landing, progressive disclosure, and the attention/interruption policy for `web/portal`. |
+| Status | **Approved interaction direction.** Owns the shell navigation model, the workspace landing, progressive disclosure, and the attention/interruption policy for `web/portal`. |
 | Applies to | The authenticated staff portal `/app/*`. |
 | Relationship to existing IA | `iip_information_architecture_navigation_and_screen_inventory.md` continues to own the canonical object model, route IDs, route-to-label map, and permission-derived visibility. **This document supersedes its navigation-layer and shell-chrome content**: the grouped multi-section sidebar it describes is replaced by the model in §5 here. Where the two conflict on chrome, this document wins; where they conflict on a route's existence or authority, that document and current code win. |
 | Companion documents | `iip_design_language_v2.md` (how it looks), `iip_workflow_legibility_contract.md` (what state must be visible), `iip_ui_craft_guardrails.md` (craft floor) |
@@ -67,7 +67,7 @@ If a screen cannot answer one of these, the screen is wrong. Do not solve it wit
 
 ```
 ┌──────┬──────────────────┬──────────────────────────────────────────┐
-│ 64px │  contextual      │  content column                          │
+│ 80px │  contextual      │  content column                          │
 │ rail │  panel 256px     │  max 960px / 1040px, left-aligned        │
 │      │  (screen-        │                                          │
 │      │  dependent;      │  breadcrumb                              │
@@ -77,7 +77,7 @@ If a screen cannot answer one of these, the screen is wrong. Do not solve it wit
 └──────┴──────────────────┴──────────────────────────────────────────┘
 ```
 
-Geometry is specified in `iip_design_language_v2.md` §3. The rail is always present; 64px is its collapsed width, and it expands to roughly 240px per §5.2's amendment below. The contextual panel appears only where a screen has genuine sub-navigation or history. The content column never centres itself in the viewport.
+Geometry is specified in `iip_design_language_v2.md` §3. The rail is always present; 80px is its collapsed width, and it expands to 256px. The contextual panel appears only where a screen has genuine sub-navigation or history. The content column never centres itself in the viewport.
 
 ### 5.2 The rail destinations (amended 2026-09-11)
 
@@ -85,7 +85,7 @@ Geometry is specified in `iip_design_language_v2.md` §3. The rail is always pre
 
 Two ways to close that gap were on the table: build the original tabs-in-seven plan for real (the larger, arguably more disciplined fix — collapsing Customers/Communications/Knowledge/Acquisition/Policy/Fraud/Underwriting/Audit into tabs inside Claims, Inbox, Automation and Insights, with per-tab URL state per §5.5), or accept that these are load-bearing top-level screens today and give the rail room for them. This amendment takes the second path, because the first is a substantially larger, riskier change (new tab scaffolding across eight screens, migrating each one's state into query strings) that the platform's other gaps did not leave room for in this pass. **The first path remains open** — nothing here forecloses eventually building the tabs-in-seven design properly; this amendment records the interim decision and its reasoning so that choice is made deliberately later, not rediscovered.
 
-The rail is now **expandable** rather than fixed-width: collapsed, it is the original 64px icon-only rail; expanded (the default for a new user, persisted per-browser thereafter), it is roughly 240px wide with a text label beside every icon, and destinations are organised into named groups so the list stays scannable rather than one long undifferentiated column. Hick's Law (§2) still governs — grouping is exactly the technique for keeping a longer list decidable — but the "seven, and no more" ceiling is retired.
+The rail is **expandable**: collapsed, it is an 80px icon-only rail; expanded (persisted per browser), it is 256px wide with a text label beside every icon. Destinations are organised into named groups so the list stays scannable rather than one long undifferentiated column. Hick's Law (§2) still governs, but the "seven, and no more" ceiling is retired.
 
 | Group | Destination | Route | Icon (lucide) | What it holds |
 |---|---|---|---|---|
@@ -132,21 +132,21 @@ Tabs, not new destinations. Tabs use the filter-pill treatment from the design l
 
 ---
 
-## 6. The brief-first landing (revised 2026-09-22)
+## 6. The workspace landing (revised 2026-11-08)
 
-### 6.0 Why this revises the original chat-first decision
+### 6.0 Why this revises the brief-first decision
 
-This section originally made the Assistant, not a ranked queue, the user's first screen, reasoning that enormous capability underneath a single text field beats making a claims officer learn which of several screens holds the answer to "what's stuck?". That reasoning holds for *discovery* — a question whose shape is not known in advance. It does not hold for the single most common reason a person opens IIP: to find out what needs them right now, which is not a question that benefits from being typed. A ranked list answers it in under a second; a chat turn, however fast, does not. The build contract (`docs/01-strategy-requirements-roadmap/IIP_NEXT_BUILD_PROMPT.md`, outcome F) made this call explicitly: replace the empty-chat landing with the brief, and keep chat, not remove it, as a bar available everywhere. This section, its acceptance criteria, and the rail table in §5.2 are corrected to match; the reasoning is recorded here so the decision is deliberate, not silently overwritten.
+The 2026-09-22 brief-first decision replaced the earlier chat-first proposal. The current workspace build prompt (`IIP_Web_App` Settings and CIP-style workspace) makes a newer, explicit product decision: `/app/workspace` is the signed-in staff landing page, with permission-filtered queue links, a persistent Command Center conversation, and Kato's existing acquisition workbook workflow for authorized users. `/app/brief` remains directly reachable as a secondary destination. This amendment supersedes the older landing choice while retaining its requirement that queue values come only from live permitted data.
 
-### 6.1 The brief is the front door
+### 6.1 The workspace is the front door
 
-The user's first screen at `/app` is the **brief**: at most five items ranked by a deterministic Domain rule from real fields — document completeness, working days against the product's own service standard (§B of the build contract), value at stake, advisory risk signals, and how long the customer has waited — each with a one-sentence reason built from those same fields and exactly one primary action. Below it, a short **"Handled for you"** list drawn from the audit trail, so the person sees what already moved without having to ask. Honest empty state when nothing needs the person: say so plainly, do not show chips or prompts that lead nowhere.
+The user's first screen is `/app/workspace`. It identifies the signed-in staff member and active workspace, then offers links only to queues allowed by the server-resolved permissions: leads, assigned work/approvals, and claims. Counts are omitted until a live permission-filtered summary endpoint is wired. Staff without these queue permissions see the assistant handoff or a clear access setup message. Authorized acquisition staff also retain the real workbook analysis, chart and audited export flow. The Brief remains at `/app/brief`.
 
-The brief never explains itself with a model. The reason sentence is assembled from the fields the ranking rule already used; a model may narrate a result this rule produced, never produce the result itself (AGENTS.md non-negotiable 2).
+The workspace greeting is presentational. Queue availability comes from resolved permissions, and queue records are loaded by the destination's existing API. A model does not decide access or create queue counts.
 
-### 6.2 Chat is a bar, not the whole house
+### 6.2 Conversation and work remain connected
 
-Chat is still everywhere, just not the first thing a person sees. A persistent, single-line ask affordance sits at the foot of every `/app/*` screen except the Assistant's own (which already has a full composer); submitting a question there hands off to the full conversation at `/app/assistant`, carrying the question with it. The Assistant screen itself is unchanged from what this section originally specified for `/app`: the same orb-greeting-chips empty state (§6.2a), the same reply and handoff contract (§7), the same governance (§6.3).
+The workspace includes a full composer. General questions use the existing tenant-scoped Command Center query and persistence API, so they appear in Recent chats and reopen through the conversation route. Acquisition workbook analysis and chart/export results remain available in the workspace; those typed local results are not restored as a saved conversation. The Assistant also remains available at `/app/assistant`.
 
 A chat that can only talk is still a demo — the handoff contract in §7 is what stops it from being one, and it applies identically at its new address.
 

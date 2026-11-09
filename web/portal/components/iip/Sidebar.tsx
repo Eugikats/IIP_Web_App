@@ -38,17 +38,13 @@ const RAIL_GROUPS: { label: string; items: { to: string; label: string; icon: ty
   {
     label: "Work",
     items: [
-      { to: "/app", label: "Brief", icon: Home },
+      { to: "/app/workspace", label: "Workspace", icon: Home },
       { to: "/app/claims", label: "Claims", icon: FileSearch },
       { to: "/app/acquisition", label: "Acquisition", icon: Building2 },
-      { to: "/app/workspace", label: "Kato workspace", icon: Sparkles },
       { to: "/app/channels", label: "Inbox", icon: Inbox },
+      { to: "/app/work-items", label: "Approvals", icon: ListChecks },
       { to: "/academy", label: "IIP Academy", icon: GraduationCap },
     ],
-  },
-  {
-    label: "Data",
-    items: [{ to: "/app/knowledge", label: "Data Hub", icon: BookOpen }],
   },
 ];
 
@@ -56,7 +52,8 @@ const RAIL_GROUPS: { label: string; items: { to: string; label: string; icon: ty
 // screen is unreachable.
 const MORE_DESTINATIONS: { to: string; label: string; icon: typeof MessageSquare }[] = [
   { to: "/app/assistant", label: "Assistant", icon: MessageSquare },
-  { to: "/app/brief", label: "My day", icon: Home },
+  { to: "/app/brief", label: "Brief", icon: Home },
+  { to: "/app/knowledge", label: "Knowledge library", icon: BookOpen },
   { to: "/app/work-items", label: "My work", icon: ListChecks },
   { to: "/app/customers", label: "Customers", icon: Users },
   { to: "/app/communications", label: "Communications", icon: Mail },
@@ -164,7 +161,7 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
   const userInitials = runtimeInitials(displayName);
   const userId = runtimeContext?.userId ?? "unknown-user";
 
-  // `pinned` is the saved choice (expanded or the 64px rail). `peek` is a temporary opening of the
+  // `pinned` is the saved choice (expanded or the 80px rail). `peek` is a temporary opening of the
   // rail while the pointer is over it, so the page does not shift. `expanded` is what is drawn.
   const [pinned, setExpanded] = useState(false);
   const [peek, setPeek] = useState(false);
@@ -175,7 +172,7 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
   const [searchOpen, setSearchOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsSection, setSettingsSection] = useState<SettingsSection>("integrations");
+  const [settingsSection, setSettingsSection] = useState<SettingsSection>("profile");
   const openSettings = (section: SettingsSection) => { setSettingsSection(section); setSettingsOpen(true); };
 
   // Other parts of the app (the set-up prompt for a second step) ask for a Settings section to be opened.
@@ -202,7 +199,7 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem(EXPANDED_STORAGE_KEY);
-      // Narrow screens start with the 64px rail so the page keeps its width; a saved choice always wins.
+      // Narrow screens start with the 80px rail so the page keeps its width; a saved choice always wins.
       if (stored !== null) setExpanded(stored === "true");
       else if (window.matchMedia("(max-width: 1023px)").matches) setExpanded(false);
       setExpandOnHover(window.localStorage.getItem(HOVER_STORAGE_KEY) !== "false");
@@ -328,7 +325,7 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
   return (
     // The wrapper keeps the page's share of the width at the pinned size; the sidebar itself is
     // positioned over the page, so a peek slides over the content instead of pushing it.
-    <div className={cn("relative h-full shrink-0 transition-[width] duration-dls-panel ease-dls", pinned ? "w-60" : "w-16", !expandedLoaded && "invisible")}>
+    <div className={cn("relative h-full shrink-0 transition-[width] duration-dls-panel ease-dls", pinned ? "w-64" : "w-20", !expandedLoaded && "invisible")}>
     <aside
       ref={asideRef}
       aria-label="Primary navigation"
@@ -341,7 +338,7 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
       }}
       className={cn(
         "absolute inset-y-0 left-0 z-30 flex flex-col border-r border-dls-border-subtle bg-dls-surface py-3.5 transition-[width,box-shadow] duration-dls-panel ease-dls",
-        expanded ? "w-60 items-stretch px-3" : "w-16 items-center",
+        expanded ? "w-64 items-stretch px-3" : "w-20 items-center",
         peek && !pinned && "shadow-dls-popover",
       )}
     >
@@ -397,7 +394,7 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
           ref={navRef}
           className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto", expanded ? "items-stretch gap-4" : "items-center gap-1")}
         >
-          {groups.map((group) => (
+            {groups.map((group) => (
             <div key={group.label} className={cn("flex flex-col", expanded ? "gap-0.5" : "contents")}>
               {expanded && (
                 <div className="animate-label-in px-2.5 pb-0.5 text-[10.5px] font-bold uppercase tracking-[0.08em] text-dls-text-muted">
@@ -421,7 +418,10 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
                 <ModalRailButton label="Integrations" icon={Plug} expanded={expanded} onClick={() => openSettings("integrations")} />
               )}
               {settingsAvailable && (
-                <ModalRailButton label="Settings" icon={Settings} expanded={expanded} onClick={() => openSettings("team")} />
+                <ModalRailButton label="Data Hub" icon={BookOpen} expanded={expanded} onClick={() => openSettings("dataHub")} />
+              )}
+              {settingsAvailable && (
+                <ModalRailButton label="Settings" icon={Settings} expanded={expanded} onClick={() => openSettings("profile")} />
               )}
             </div>
           ) : null}
@@ -490,7 +490,7 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
               </button>
             )}
             {settingsAvailable && (
-              <button type="button" onClick={() => { setProfileOpen(false); openSettings("team"); }} role="menuitem" className="flex w-full items-center gap-2.5 rounded-dls-control px-3 py-2 text-[13px] text-dls-text-primary hover:bg-dls-bg-page">
+              <button type="button" onClick={() => { setProfileOpen(false); openSettings("seats"); }} role="menuitem" className="flex w-full items-center gap-2.5 rounded-dls-control px-3 py-2 text-[13px] text-dls-text-primary hover:bg-dls-bg-page">
                 <Settings className="h-4 w-4 text-dls-text-muted" aria-hidden="true" /> Settings
               </button>
             )}

@@ -5,13 +5,14 @@ import { Suspense, useCallback, useEffect, useMemo, useState, type ComponentType
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
-  ArrowLeft, Bot, CreditCard, ShieldCheck, FolderOpen, HardDrive, Languages, Mail, MessageCircle, Package, Plug, Search, Settings, Smartphone, User, Users, X, type LucideIcon,
+  ArrowLeft, Bot, CreditCard, ShieldCheck, FolderOpen, HardDrive, Languages, Mail, MessageCircle, Package, Plug, Search, Settings, Smartphone, User, Users, X, Bell, Building2, Database, Gauge, Scale, type LucideIcon,
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { StatusPill, type PillTone } from "@/components/ui/StatusPill";
 import { Input } from "@/components/ui/Input";
 import { LoadingSkeleton } from "@/components/ui/StateSurfaces";
 import { useUI } from "@/context/UIStateContext";
+import { useRuntimeContext } from "@/lib/runtimeContext";
 import { apiBaseUrl, scopedHeaders } from "@/lib/config";
 import { LOVABLE_VISUAL_PARITY_MODE } from "@/lib/lovable-parity/mode";
 import { formatDateTime } from "@/lib/format";
@@ -31,6 +32,9 @@ import ProductsPanel from "@/lovable-pages/admin/Products";
 import TenantPolicyPanel from "@/lovable-pages/admin/TenantPolicy";
 import UsersPanel from "@/lovable-pages/admin/Users";
 import WhatsAppPanel from "@/lovable-pages/admin/WhatsAppSettings";
+import NotificationRoutingSettings from "@/lovable-pages/admin/NotificationRoutingSettings";
+import TemplatesPanel from "@/lovable-pages/admin/Templates";
+import OnboardingPanel from "@/lovable-pages/admin/Onboarding";
 
 // Settings as a window over whatever screen the person is on, laid out as in CIP: a list of sections on
 // the left, the section's title and description on top, and the content beneath. Every settings screen
@@ -38,16 +42,20 @@ import WhatsAppPanel from "@/lovable-pages/admin/WhatsAppSettings";
 // is connected and what is not. A card is "Connected" only when the provider validated the saved
 // connection; file sources that cannot be connected yet say "Not connected" and why.
 
-export type SettingsSection = "profile" | "integrations" | "agents" | "team" | "products" | "billing" | "security";
+export type SettingsSection = "integrations" | "dataHub" | "agents" | "security" | "notifications" | "usage" | "billing" | "seats" | "organisation" | "profile" | "governance";
 
 const SECTIONS: { key: SettingsSection; label: string; title: string; description: string; icon: LucideIcon }[] = [
-  { key: "integrations", label: "Integrations", title: "Integrations", description: "What the platform can connect to, and what is connected.", icon: Plug },
-  { key: "agents", label: "Agent rules", title: "Agent rules", description: "What each agent may do, how Kato speaks, and the switch that turns each agent off.", icon: Bot },
-  { key: "team", label: "Team and access", title: "Team and access", description: "Who can sign in, what they can see and do, and the rules everyone in this workspace follows.", icon: Users },
-  { key: "products", label: "Products", title: "Products", description: "The covers sold, their documents and claim stages, and policy imports.", icon: Package },
-  { key: "billing", label: "Usage and billing", title: "Usage and billing", description: "How much the platform has been used, the plan, and AI credits.", icon: CreditCard },
-  { key: "security", label: "Security", title: "Security", description: "How you prove it is you after signing in, and whether your organisation requires it.", icon: ShieldCheck },
-  { key: "profile", label: "Profile", title: "Profile", description: "Who you are signed in as, and the workspace you are working in.", icon: User },
+  { key: "integrations", label: "Integrations", title: "Integrations", description: "Manage insurer channels and connected systems.", icon: Plug },
+  { key: "dataHub", label: "Data Hub", title: "Data Hub", description: "Review insurer knowledge, products and source documents.", icon: Database },
+  { key: "agents", label: "Agent rules", title: "Agent rules", description: "Review the approved instructions and proposals that govern agents.", icon: Bot },
+  { key: "security", label: "Security & Login", title: "Security & Login", description: "Manage supported IIP security controls alongside Microsoft sign-in.", icon: ShieldCheck },
+  { key: "notifications", label: "Notifications", title: "Notifications", description: "Choose who receives operational alerts and where they are delivered.", icon: Bell },
+  { key: "usage", label: "Usage", title: "Usage", description: "Review actual AI credit usage and metering for this workspace.", icon: Gauge },
+  { key: "billing", label: "Billing", title: "Billing", description: "Review the plan and billing records available to this workspace.", icon: CreditCard },
+  { key: "seats", label: "Account seats", title: "Account seats", description: "Manage workspace members and their assigned access.", icon: Users },
+  { key: "organisation", label: "Organisation", title: "Organisation", description: "Review insurer identity and onboarding records.", icon: Building2 },
+  { key: "profile", label: "Profile", title: "Profile", description: "Manage your IIP profile and personal preferences.", icon: User },
+  { key: "governance", label: "Governance & Policies", title: "Governance & Policies", description: "Review approved workspace policy and audit evidence.", icon: Scale },
 ];
 
 type CardState = { tone: PillTone; label: string; detail: string | null; connected: boolean; checks?: CatalogueCheck[] };
@@ -61,7 +69,7 @@ function cardStateFromCatalogue(card: CatalogueCard): CardState {
   return { tone, label: card.stateLabel, detail: card.summary, connected: card.state === "Connected" || card.state === "NeedsAttention", checks: card.checks };
 }
 
-type PanelKey = "whatsapp" | "connections" | "mailbox";
+type PanelKey = "whatsapp" | "templates" | "connections" | "mailbox";
 
 type Integration = {
   key: string;
@@ -77,6 +85,7 @@ type Integration = {
 
 const PANELS: Record<PanelKey, { title: string; Component: ComponentType }> = {
   whatsapp: { title: "WhatsApp Business", Component: WhatsAppPanel },
+  templates: { title: "WhatsApp templates", Component: TemplatesPanel },
   connections: { title: "SMS, email and translation", Component: ConnectionsPanel },
   mailbox: { title: "Claims mailbox", Component: EmailInboxPanel },
 };
@@ -145,12 +154,12 @@ export function SettingsModal({
   }, [pathname]);
 
   return (
-    <Modal open={open} title="Settings" onClose={onClose} width={960} bare>
-      <div className="flex h-[min(720px,calc(100dvh-3rem))] flex-col sm:flex-row">
-        <div className="hidden w-52 shrink-0 flex-col border-r border-gray-100 bg-gray-50 sm:flex">
+    <Modal open={open} title="Settings" onClose={onClose} width={1180} bare>
+      <div className="flex h-[min(820px,calc(100dvh-1.5rem))] flex-col sm:flex-row">
+        <div className="hidden w-[276px] shrink-0 flex-col border-r border-dls-border-subtle bg-dls-surface sm:flex">
           <div className="flex items-center gap-2 border-b border-gray-100 px-5 py-4">
-            <Settings className="h-4 w-4 text-gray-500" aria-hidden="true" />
-            <span className="text-sm font-semibold text-gray-900">Settings</span>
+            <Settings className="h-4 w-4 text-dls-text-secondary" aria-hidden="true" />
+            <span className="text-sm font-semibold text-dls-text-primary">Settings</span>
           </div>
           <nav aria-label="Settings sections" className="flex-1 space-y-0.5 overflow-y-auto px-3 py-3">
             {SECTIONS.map((item) => {
@@ -163,8 +172,8 @@ export function SettingsModal({
                   onClick={() => onSectionChange(item.key)}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors",
-                    active ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:bg-white hover:text-gray-900",
+                    "flex min-h-10 w-full items-center gap-2.5 rounded-dls-control px-3 py-2 text-left text-[13px] font-medium transition-colors dls-focus-outline",
+                    active ? "bg-dls-primary-soft text-dls-primary" : "text-dls-text-secondary hover:bg-dls-bg-page hover:text-dls-text-primary",
                   )}
                 >
                   <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -178,13 +187,13 @@ export function SettingsModal({
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <div className="flex shrink-0 items-start justify-between gap-3 border-b border-gray-100 px-4 py-3 sm:px-7 sm:py-5">
             <div className="min-w-0">
-              <h2 className="m-0 truncate text-lg font-semibold tracking-tight text-slate-900 sm:text-xl">{meta.title}</h2>
-              <p className="m-0 mt-1 hidden text-sm text-slate-500 sm:block">{meta.description}</p>
+              <h2 className="m-0 truncate text-lg font-semibold tracking-tight text-dls-text-primary sm:text-xl">{meta.title}</h2>
+              <p className="m-0 mt-1 hidden text-sm text-dls-text-secondary sm:block">{meta.description}</p>
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              className="dls-focus-outline flex h-9 w-9 shrink-0 items-center justify-center rounded-dls-control text-dls-text-secondary transition-colors hover:bg-dls-bg-page hover:text-dls-text-primary"
               aria-label="Close settings"
               title="Close settings (Esc)"
             >
@@ -192,21 +201,11 @@ export function SettingsModal({
             </button>
           </div>
 
-          <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-gray-100 bg-gray-50 px-3 py-2 sm:hidden">
-            {SECTIONS.map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                onClick={() => onSectionChange(item.key)}
-                aria-current={section === item.key ? "page" : undefined}
-                className={cn(
-                  "shrink-0 rounded-full px-3 py-1.5 text-[12px] font-semibold transition-colors",
-                  section === item.key ? "bg-blue-600 text-white" : "bg-white text-gray-600 ring-1 ring-gray-200",
-                )}
-              >
-                {item.label}
-              </button>
-            ))}
+          <div className="shrink-0 border-b border-dls-border-subtle bg-dls-surface px-3 py-2 sm:hidden">
+            <label className="block text-xs font-semibold text-dls-text-secondary" htmlFor="settings-section-select">Settings section</label>
+            <select id="settings-section-select" value={section} onChange={(event) => onSectionChange(event.target.value as SettingsSection)} className="mt-1 min-h-10 w-full rounded-dls-control border border-dls-border-input bg-dls-surface px-3 text-sm text-dls-text-primary dls-focus-outline">
+              {SECTIONS.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
+            </select>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-7 sm:py-5">
@@ -221,25 +220,15 @@ export function SettingsModal({
                 <Suspense fallback={<LoadingSkeleton rows={4} />}>
                   {section === "integrations" ? <IntegrationsSection /> : null}
                   {section === "agents" ? <AgentsSection /> : null}
-                  {section === "team" ? (
-                    <Tabbed
-                      tabs={[
-                        { key: "users", label: "Users and roles", Component: UsersPanel },
-                        { key: "policy", label: "Workspace policy", Component: TenantPolicyPanel },
-                      ]}
-                    />
-                  ) : null}
-                  {section === "products" ? (
-                    <Tabbed
-                      tabs={[
-                        { key: "products", label: "Products", Component: ProductsPanel },
-                        { key: "import", label: "Import policies", Component: PolicyImportPanel },
-                      ]}
-                    />
-                  ) : null}
+                  {section === "dataHub" ? <DataHubSection /> : null}
                   {section === "security" ? <SecuritySection /> : null}
-                  {section === "billing" ? <BillingSection /> : null}
                   {section === "profile" ? <Embedded><ProfileSettings /></Embedded> : null}
+                  {section === "notifications" ? <Embedded><NotificationRoutingSettings /></Embedded> : null}
+                  {section === "usage" ? <Embedded><CreditMeter /></Embedded> : null}
+                  {section === "billing" ? <Embedded><BillingPanel /></Embedded> : null}
+                  {section === "seats" ? <Embedded><UsersPanel /></Embedded> : null}
+                  {section === "organisation" ? <OrganisationSection /> : null}
+                  {section === "governance" ? <GovernanceSection /> : null}
                 </Suspense>
               </motion.div>
             </AnimatePresence>
@@ -290,13 +279,50 @@ function AgentsSection() {
   );
 }
 
-function BillingSection() {
+function DataHubSection() {
   return (
-    <div>
-      <CreditMeter />
-      <Embedded>
-        <BillingPanel />
-      </Embedded>
+    <div className="space-y-5">
+      <section className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4 sm:p-5">
+        <h3 className="m-0 text-[15px] font-semibold text-dls-text-primary">Insurer knowledge and sources</h3>
+        <p className="m-0 mt-1 text-[13px] leading-5 text-dls-text-secondary">Review policy wordings, product documents and extracted proposals in the knowledge library. Source material remains separate from approved product and agent rules.</p>
+        <Link href="/app/knowledge" className="mt-3 inline-flex min-h-10 items-center rounded-dls-control border border-dls-border-input px-3 text-[13px] font-semibold text-dls-text-primary hover:bg-dls-bg-page dls-focus-outline">Open knowledge library</Link>
+      </section>
+      <Tabbed tabs={[
+        { key: "products", label: "Products and sources", Component: ProductsPanel },
+        { key: "wordings", label: "Import wordings", Component: PolicyImportPanel },
+      ]} />
+    </div>
+  );
+}
+
+function OrganisationSection() {
+  const { runtimeContext } = useRuntimeContext();
+  const active = runtimeContext?.availableWorkspaces.find((item) => item.workspaceId === runtimeContext.workspaceId);
+  return (
+    <div className="space-y-4">
+      <section className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4 sm:p-5">
+        <h3 className="m-0 text-[15px] font-semibold text-dls-text-primary">Current workspace</h3>
+        <dl className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div><dt className="text-xs font-semibold text-dls-text-secondary">Organisation</dt><dd className="m-0 mt-1 text-sm text-dls-text-primary">{active?.name ?? "Not configured"}</dd></div>
+          <div><dt className="text-xs font-semibold text-dls-text-secondary">Workspace</dt><dd className="m-0 mt-1 break-all text-sm text-dls-text-primary">{runtimeContext?.workspaceId ?? "Not configured"}</dd></div>
+        </dl>
+      </section>
+      <Embedded><OnboardingPanel /></Embedded>
+    </div>
+  );
+}
+
+function GovernanceSection() {
+  return (
+    <div className="space-y-5">
+      <section className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4 sm:p-5">
+        <h3 className="m-0 text-[15px] font-semibold text-dls-text-primary">Human decision boundaries</h3>
+        <p className="m-0 mt-1 text-[13px] leading-5 text-dls-text-secondary">IIP can prepare evidence and recommendations. A person remains responsible for claim, settlement, underwriting, fraud and complaint decisions.</p>
+      </section>
+      <Tabbed tabs={[
+        { key: "policy", label: "Workspace policy", Component: TenantPolicyPanel },
+        { key: "agents", label: "Agent rules", Component: AgentsPanel },
+      ]} />
     </div>
   );
 }
@@ -525,6 +551,11 @@ function IntegrationsSection() {
                           className="mt-3 inline-flex min-h-9 items-center rounded-lg border border-gray-200 bg-white px-3 text-[13px] font-semibold text-slate-700 transition-colors hover:bg-slate-50"
                         >
                           {state.connected ? "Manage" : "Set up"}
+                        </button>
+                      ) : null}
+                      {item.key === "whatsapp" ? (
+                        <button type="button" onClick={() => setPanel("templates")} className="ml-2 mt-3 inline-flex min-h-9 items-center rounded-lg px-3 text-[13px] font-semibold text-[#1769FF] transition-colors hover:bg-blue-50 dls-focus-outline">
+                          Templates
                         </button>
                       ) : null}
                       {(item.key === "email" || item.key === "sms") && state.connected ? <TestSend channel={item.key} role={role} name={item.name} /> : null}

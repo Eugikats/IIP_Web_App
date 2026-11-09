@@ -4,11 +4,13 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AlertTriangle, BarChart3, CheckCircle2, Download, FileSpreadsheet, Loader2, Paperclip, SendHorizontal, X } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/Button";
+import { Link } from "@/components/iip/NextRouterCompat";
+import { CommandCenterBlocks } from "@/components/iip/CommandCenterAnswer";
 import { StatusPill, type PillTone } from "@/components/ui/StatusPill";
-import { NoPermissionStateSurface } from "@/components/ui/StateSurfaces";
 import { useUI } from "@/context/UIStateContext";
 import { canUseLocalTestDoubles } from "@/lib/config";
 import { useRuntimeContext } from "@/lib/runtimeContext";
+import { useCommandCenterQuery, type CommandCenterAnswer } from "@/lib/lovable-parity/data/commandCenterQuery";
 import {
   analyseWorkbook,
   exportAnalysis,
@@ -27,7 +29,8 @@ type Message =
   | { id: number; from: "user"; text: string; fileName?: string }
   | { id: number; from: "kato"; kind: "text"; text: string; error?: boolean }
   | { id: number; from: "kato"; kind: "analysis"; analysis: WorkbookAnalysis }
-  | { id: number; from: "kato"; kind: "chart"; series: ChartSeries };
+  | { id: number; from: "kato"; kind: "chart"; series: ChartSeries }
+  | { id: number; from: "kato"; kind: "answer"; answer: CommandCenterAnswer };
 
 // Omit does not distribute over a union, so a message without its id is spelled out per member.
 type NewMessage = Message extends infer M ? (M extends { id: number } ? Omit<M, "id"> : never) : never;
@@ -42,9 +45,6 @@ const SUGGESTIONS = [
   "Show prospects by stage",
   "Compare product interest",
 ];
-
-const WELCOME =
-  "I can analyse a customer workbook (.xlsx or .csv) and recommend covers with the reasons shown, prepare message previews for review, export the analysis to Excel, and chart prospects from the records in this workspace. I do not send messages from here.";
 
 function bandTone(band: string): PillTone {
   if (band === "High priority" || band === "Qualified") return "success";
@@ -375,19 +375,33 @@ function ChartCard({ series }: { series: ChartSeries }) {
 export default function KatoWorkspace() {
   const { roleDef } = useUI();
   const { runtimeContext, parityMode } = useRuntimeContext();
+  const { ask } = useCommandCenterQuery();
   const permissions = runtimeContext?.permissions ?? [];
   const canView = canUseLocalTestDoubles || parityMode || permissions.includes("ViewSalesLeads");
   const canManage = canUseLocalTestDoubles || parityMode || permissions.includes("ManageSalesLeads");
+  const canAssistant = canUseLocalTestDoubles || parityMode || permissions.includes("ViewCommandCenter");
+  const personName = runtimeContext?.displayName?.trim().split(/\s+/)[0] || null;
+  const [localTime, setLocalTime] = useState<{ greeting: string; date: string } | null>(null);
+  const workspace = runtimeContext?.availableWorkspaces.find((item) => item.workspaceId === runtimeContext.workspaceId);
+  const canClaims = canUseLocalTestDoubles || parityMode || permissions.some((permission) => ["ViewAllClaims", "ViewAssignedClaims"].includes(permission));
+  const canWork = canUseLocalTestDoubles || parityMode || permissions.includes("ReviewAgentWorkItems") || permissions.includes("ApproveSettlementWorkflowStep");
 
-  const [messages, setMessages] = useState<Message[]>([{ id: 0, from: "kato", kind: "text", text: WELCOME }]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const latestAnalysis = useRef<WorkbookAnalysis | null>(null);
+  const conversationId = useRef<string | undefined>(undefined);
   const nextId = useRef(1);
   const fileInput = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const hour = new Date().getHours();
+    const greeting = hour < 5 ? "Hello" : hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+    setLocalTime({ greeting, date: new Intl.DateTimeFormat(undefined, { weekday: "long", month: "long", day: "numeric" }).format(new Date()) });
+  }, []);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
@@ -433,7 +447,7 @@ export default function KatoWorkspace() {
       return;
     }
 
-    const intent = routeInstruction(text, latestAnalysis.current !== null);
+    const intent = canView ? routeInstruction(text, latestAnalysis.current !== null) : { kind: "unsupported" as const, reply: "" };
     if (intent.kind === "chart") {
       setBusy("Reading prospect records");
       const result = await getChart(roleDef.key, intent.metric, intent.days);
@@ -456,29 +470,75 @@ export default function KatoWorkspace() {
     } else if (intent.kind === "unsupported") {
       push({ from: "kato", kind: "text", text: intent.reply });
     } else {
-      push({
-        from: "kato",
-        kind: "text",
-        text: "I can do three things from here: analyse an attached customer workbook, chart prospects (new per day, by stage, by product interest, by channel), and export the latest analysis to Excel. Try one of the suggestions below.",
-      });
+      setBusy("Checking workspace records");
+      const result = await ask(text, conversationId.current, crypto.randomUUID());
+      setBusy(null);
+      if (!result.ok) {
+        push({ from: "kato", kind: "text", text: result.message, error: true });
+        return;
+      }
+      conversationId.current = result.answer.conversationId ?? conversationId.current;
+      push({ from: "kato", kind: "answer", answer: result.answer });
+      if (result.answer.conversationId) window.dispatchEvent(new CustomEvent("iip:conversations-changed"));
     }
   }
 
-  if (!canView) {
+  if (messages.length === 0) {
     return (
-      <div className="mx-auto max-w-3xl p-6">
-        <NoPermissionStateSurface permission="ViewSalesLeads" />
+      <div className="mx-auto flex min-h-[calc(100dvh-4.5rem)] w-full max-w-5xl flex-col px-3 py-5 sm:px-6 lg:px-8">
+        <div className="flex flex-1 flex-col justify-center pb-6">
+          <header className="mb-6 pr-12 text-center sm:mb-8">
+            <p className="m-0 text-[12px] font-semibold uppercase tracking-[0.08em] text-dls-text-muted">{workspace?.name ?? "Insurance Intelligence Platform"}</p>
+            <div className="flex flex-wrap items-end justify-center gap-x-3 gap-y-1">
+              <h1 className="cip-cc-serif m-0 mt-2 text-[28px] font-semibold tracking-tight text-dls-text-primary sm:text-[36px]">
+                {localTime?.greeting ?? "Welcome"}{personName ? `, ${personName}` : " to your workspace"}
+              </h1>
+              {localTime ? <p className="m-0 text-[12px] text-dls-text-muted">{localTime.date}</p> : null}
+            </div>
+            <p className="m-0 mt-3 text-[14px] leading-6 text-dls-text-secondary">Ask about claims, customers or acquisition. You can also analyse a customer workbook if your role allows it.</p>
+          </header>
+          {(canAssistant || canView) ? (
+            <div className="mx-auto w-full max-w-3xl rounded-2xl border border-dls-border-subtle bg-dls-surface p-3 sm:p-4">
+              {canView ? <ul className="m-0 mb-2 flex list-none flex-wrap justify-center gap-1.5 p-0">
+                {SUGGESTIONS.map((suggestion) => <li key={suggestion}><button type="button" onClick={() => void submit(suggestion)} className="inline-flex min-h-8 items-center gap-1.5 rounded-dls-pill border border-dls-border-pill bg-dls-surface px-2.5 py-1 text-xs text-dls-text-primary hover:bg-dls-surface-sunken"><BarChart3 className="h-3 w-3" aria-hidden />{suggestion}</button></li>)}
+              </ul> : null}
+              {file ? <p className="m-0 mb-2 inline-flex items-center gap-2 rounded-dls-control border border-dls-border-subtle bg-dls-surface px-2.5 py-1 text-xs text-dls-text-primary"><FileSpreadsheet className="h-3.5 w-3.5" aria-hidden />{file.name}<button type="button" aria-label="Remove attachment" onClick={() => setFile(null)} className="text-dls-text-secondary hover:text-dls-text-primary"><X className="h-3.5 w-3.5" /></button></p> : null}
+              {fileError ? <p role="alert" className="m-0 mb-2 text-xs text-dls-danger-text">{fileError}</p> : null}
+              <form className="flex items-end gap-2" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
+                <input ref={fileInput} type="file" accept=".xlsx,.csv" className="sr-only" aria-label="Attach a customer workbook" onChange={(event) => { chooseFile(event.target.files?.[0]); event.target.value = ""; }} />
+                <Button variant="secondary" aria-label="Attach a customer workbook" disabled={!canManage || !!busy} title={canManage ? "Attach an .xlsx or .csv workbook" : "Your role cannot analyse customer files"} onClick={() => fileInput.current?.click()} icon={<Paperclip />} />
+                <textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void submit(); } }} rows={2} placeholder={canView ? "Ask about your work, or attach a workbook" : "Ask about claims, customers or your assigned work"} aria-label="Message Kato" className="min-h-[48px] flex-1 resize-y rounded-xl border border-dls-border-input bg-dls-surface px-3 py-2.5 text-[14px] text-dls-text-primary placeholder:text-dls-text-faint dls-focus-outline" />
+                <Button variant="primary" type="submit" disabled={(!input.trim() && !file) || !!busy || (!canAssistant && !canView)} aria-label="Send" title="Send message" icon={busy ? <Loader2 className="animate-spin" /> : <SendHorizontal />} />
+              </form>
+            </div>
+          ) : <p className="mx-auto m-0 max-w-xl rounded-dls-card border border-dls-border-subtle bg-dls-surface px-4 py-4 text-center text-[13px] text-dls-text-secondary">Your workspace is ready. Ask your administrator to assign the work queues you need.</p>}
+        </div>
+        {(canView || canWork || canClaims) ? <section aria-label="Your work queues" className="mx-auto w-full max-w-4xl shrink-0 border-t border-dls-border-subtle pt-4 sm:pt-5">
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+            {canView && <WorkspaceLink to="/app/acquisition" title="Leads needing follow-up" detail="Open prospects and follow-up activity." />}
+            {canWork && <WorkspaceLink to="/app/work-items" title="Approvals and assigned work" detail="Open items assigned to you." />}
+            {canClaims && <WorkspaceLink to="/app/claims" title="Claims needing attention" detail="Open the claims queue." />}
+          </div>
+        </section> : null}
       </div>
     );
   }
 
   return (
-    <div className="mx-auto flex h-full min-h-[calc(100vh-4rem)] w-full max-w-4xl flex-col px-4 py-5">
+          <div className="mx-auto w-full max-w-5xl px-4 py-5 sm:px-6 lg:px-8">
+      <header className="mb-7 pr-12 sm:mb-9">
+        <p className="m-0 text-[12px] font-semibold uppercase tracking-[0.08em] text-dls-text-muted">{workspace?.name ?? "Insurance Intelligence Platform"}</p>
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <h1 className="cip-cc-serif m-0 mt-2 text-[28px] font-semibold tracking-tight text-dls-text-primary sm:text-[34px]">{localTime?.greeting ?? "Welcome"}{personName ? `, ${personName}` : " to your workspace"}</h1>
+          {localTime ? <p className="m-0 text-[12px] text-dls-text-muted">{localTime.date}</p> : null}
+        </div>
+        <p className="m-0 mt-2 max-w-2xl text-[14px] leading-6 text-dls-text-secondary">Your workspace for customer conversations, claims and the work waiting for your team.</p>
+      </header>
+
+      {canView ? <section aria-labelledby="kato-workspace-title" className="flex min-h-[min(62vh,720px)] flex-col border-t border-dls-border-subtle pt-6">
       <header className="mb-4">
-        <h1 className="m-0 text-[20px] font-semibold tracking-tight text-dls-text-primary">Kato workspace</h1>
-        <p className="m-0 mt-0.5 text-[13px] text-dls-text-secondary">
-          Instruct Kato in plain language. Results come from your own records, and every analysis and export is audited.
-        </p>
+        <h2 id="kato-workspace-title" className="m-0 text-[19px] font-semibold tracking-tight text-dls-text-primary">Kato for acquisition</h2>
+        <p className="m-0 mt-1 text-[13px] text-dls-text-secondary">Analyse a customer workbook, chart real prospects or export recommendations. Customer messages require a separate review and approval step.</p>
       </header>
 
       <div className="flex-1 space-y-4 pb-4" aria-live="polite">
@@ -504,6 +564,7 @@ export default function KatoWorkspace() {
               )}
               {message.kind === "analysis" && <AnalysisCard analysis={message.analysis} role={roleDef.key} canExport={canManage} />}
               {message.kind === "chart" && <ChartCard series={message.series} />}
+              {message.kind === "answer" && <CommandCenterBlocks blocks={message.answer.blocks} />}
             </Bubble>
           );
         })}
@@ -517,8 +578,8 @@ export default function KatoWorkspace() {
         <div ref={endRef} />
       </div>
 
-      <div className="sticky bottom-0 -mx-4 border-t border-dls-border-subtle bg-dls-bg-page px-4 pb-3 pt-3">
-        <ul className="m-0 mb-2 flex list-none flex-wrap gap-1.5 p-0">
+      <div className="sticky bottom-0 -mx-4 border-t border-dls-border-subtle bg-dls-bg-page px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+        {canView ? <ul className="m-0 mb-2 flex list-none flex-wrap gap-1.5 p-0">
           {SUGGESTIONS.map((suggestion) => (
             <li key={suggestion}>
               <button
@@ -531,7 +592,7 @@ export default function KatoWorkspace() {
               </button>
             </li>
           ))}
-        </ul>
+        </ul> : null}
         {file && (
           <p className="m-0 mb-2 inline-flex items-center gap-2 rounded-dls-control border border-dls-border-subtle bg-dls-surface px-2.5 py-1 text-xs text-dls-text-primary">
             <FileSpreadsheet className="h-3.5 w-3.5" aria-hidden /> {file.name}
@@ -577,13 +638,24 @@ export default function KatoWorkspace() {
               }
             }}
             rows={1}
-            placeholder="Ask Kato to analyse a file, plot prospects or export results"
+            placeholder="Ask about your work, or attach a workbook"
             aria-label="Message Kato"
             className="min-h-[38px] flex-1 resize-none rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-2 text-[13.5px] text-dls-text-primary placeholder:text-dls-text-faint dls-focus-outline"
           />
           <Button variant="primary" type="submit" disabled={(!input.trim() && !file) || !!busy} aria-label="Send" icon={<SendHorizontal />} />
         </form>
       </div>
+      </section> : null}
     </div>
+  );
+}
+
+function WorkspaceLink({ to, title, detail }: { to: string; title: string; detail: string }) {
+  return (
+    <Link to={to} className="group block min-h-[92px] rounded-dls-card border border-dls-border-subtle bg-dls-surface px-3 py-3 transition-colors hover:border-dls-primary-border hover:bg-dls-primary-soft dls-focus-outline sm:min-h-[104px] sm:px-4 sm:py-4">
+      <span className="block text-[14px] font-semibold text-dls-text-primary">{title}</span>
+      <span className="mt-1 block text-[13px] leading-5 text-dls-text-secondary">{detail}</span>
+      <span className="mt-3 block text-[12px] font-semibold text-dls-primary">Open queue</span>
+    </Link>
   );
 }

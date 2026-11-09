@@ -15,7 +15,7 @@ import { apiBaseUrl, canUseLocalTestDoubles } from "@/lib/config";
 import { getEntraApiAccessToken } from "@/lib/entraAuth";
 import { Loader2, PanelRightOpen, PanelRightClose, ShieldAlert } from "lucide-react";
 
-// Design language v2 §3: 64px rail (Sidebar) + an optional contextual panel + a left-aligned
+// Design language v2 §3: 80px collapsed rail (Sidebar) + an optional contextual panel + a left-aligned
 // content column. There is no fixed top bar, a page's own breadcrumb/h1/primary action live at
 // the top of its content column. This slot exists for screens with genuine sub-navigation or
 // history (navigation model §5.1); no screen populates it yet, so it renders nothing today.
@@ -183,11 +183,11 @@ function ShellInner({ children }: { children: ReactNode }) {
           </div>
 
           <main className="flex-1 overflow-y-auto">
-            {/* The two CIP-style working screens (acquisition and the inbox) use the full width; every
+            {/* The CIP-style working screens (workspace, acquisition and inbox) use the full width; every
                 other page keeps the reading width. */}
-            <div className={`mx-auto pb-[60px] pt-7 ${loc.pathname.startsWith("/app/channels") || loc.pathname.startsWith("/app/acquisition") ? "max-w-[1760px] px-6" : "max-w-[1040px] px-8"}`}>{children}</div>
+            <div className={`mx-auto pb-[60px] pt-7 ${loc.pathname.startsWith("/app/workspace") ? "max-w-[1760px] px-3 sm:px-6" : loc.pathname.startsWith("/app/channels") || loc.pathname.startsWith("/app/acquisition") ? "max-w-[1760px] px-6" : "max-w-[1040px] px-8"}`}>{children}</div>
           </main>
-          <AssistantBar />
+          {!loc.pathname.startsWith("/app/workspace") ? <AssistantBar /> : null}
         </div>
 
         <div

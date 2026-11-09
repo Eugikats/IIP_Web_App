@@ -32,6 +32,7 @@ export default function RecentChats({ expanded, onNavigate }: { expanded: boolea
   const [failed, setFailed] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const userId = runtimeContext?.userId;
 
   // The choice is remembered on this device, so a person who keeps the list closed does not reopen it every visit.
@@ -41,6 +42,12 @@ export default function RecentChats({ expanded, onNavigate }: { expanded: boolea
     } catch {
       // Storage can be blocked; the list simply starts open.
     }
+  }, []);
+
+  useEffect(() => {
+    const refresh = () => setRefreshKey((value) => value + 1);
+    window.addEventListener("iip:conversations-changed", refresh);
+    return () => window.removeEventListener("iip:conversations-changed", refresh);
   }, []);
 
   function toggleCollapsed() {
@@ -71,7 +78,7 @@ export default function RecentChats({ expanded, onNavigate }: { expanded: boolea
       });
     return () => controller.abort();
     // Reloaded when the person moves between chats, so a new one appears in the list.
-  }, [roleDef.key, userId, loc.pathname]);
+  }, [roleDef.key, userId, loc.pathname, refreshKey]);
 
   if (!expanded) {
     return (

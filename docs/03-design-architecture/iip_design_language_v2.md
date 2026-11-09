@@ -53,7 +53,7 @@ All values are exact. Do not round, scale, or "improve" them.
 
 | Region | Value |
 |---|---|
-| Icon rail width | `64px`, fixed, `flex: 0 0 64px`, background `--color-surface`, `border-right: 1px solid --color-border-subtle` |
+| Icon rail width | `80px` collapsed and `256px` expanded, background `--color-surface`, `border-right: 1px solid --color-border-subtle` |
 | Rail vertical padding | `14px 0` |
 | Rail brand mark | `32px × 32px`, radius `8px`, `margin-bottom: 18px` |
 | Rail tenant mark | `40px × 40px`, radius `10px`, `margin-bottom: 16px` |

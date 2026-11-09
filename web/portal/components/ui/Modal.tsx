@@ -99,7 +99,7 @@ export function Modal({
   return createPortal(
     <AnimatePresence>
       {open ? (
-        <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto px-4 py-6 sm:py-10">
+        <div className={`fixed inset-0 z-40 flex items-start justify-center overflow-y-auto ${bare ? "p-0 sm:px-4 sm:py-10" : "px-4 py-6 sm:py-10"}`}>
           <motion.div
             key="scrim"
             className="fixed inset-0 bg-dls-scrim/45"
@@ -118,7 +118,7 @@ export function Modal({
             aria-labelledby={bare ? undefined : "dls-modal-title"}
             aria-label={bare ? title : undefined}
             tabIndex={-1}
-            className={`relative z-[41] flex w-full flex-col overflow-hidden border border-dls-border-subtle shadow-dls-modal ${bare ? "rounded-2xl bg-white" : "rounded-dls-card bg-dls-bg-page"}`}
+            className={`relative z-[41] flex w-full flex-col overflow-hidden border border-dls-border-subtle shadow-dls-modal ${bare ? "min-h-[100dvh] rounded-none bg-white sm:min-h-0 sm:rounded-2xl" : "rounded-dls-card bg-dls-bg-page"}`}
             style={{ maxWidth: `min(${width}px, 100%)` }}
             initial={{ opacity: 0, y: rise }}
             animate={{ opacity: 1, y: 0 }}
