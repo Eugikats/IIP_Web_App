@@ -47,6 +47,16 @@ There is no DevOps pipeline, so a push to `main` is not destructive, and feature
 4. Before ending a task, check that no branch of yours holds work that `main` lacks. Merge it, or report it.
 5. A port or merge must never rewrite a whole file from one lineage over another. Compare the result with the live lineage (`git diff --numstat <live> HEAD`) and look at every file whose deletions outweigh its additions: the 2026-11-06 port commits silently removed about 150 routes and the sign-in page this way.
 
+## One working checkout (settled 2026-11-09)
+
+IIP work happens in this folder (`IIP_Web_App`) and nowhere else. Several parallel copies (`agenticIip`, `agenticIip-v2`, `iip_saas`, `iip-build`, `iip-integration-final`) each held work the others lacked, which is how the 2026 consolidation became necessary. To stop it recurring:
+
+1. **Do not create another copy of this repository.** No second clone, no renamed copy, no scratch checkout (such as `C:\iipv24b`) to hold work. If a clean tree is needed for a test or a port, use `git worktree add` on a folder under the system temp directory, and remove it with `git worktree remove` before the task ends.
+2. **Never edit or copy code from `OLD_SAAS/`.** It is read-only history. Its `README.md` lists what each folder was. If something in it seems worth keeping, tell the owner and port it deliberately into this checkout.
+3. **Start sessions in this folder.** Claude Code memory and instructions are keyed by the working-directory path, so a session opened elsewhere loses them. If the session is not in `IIP_Web_App`, say so before doing anything.
+4. **Unpushed work is never left only on a local machine.** Before ending a task, `git status` and `git log org/main..HEAD` must show nothing the owner would lose. Push to `main` as described above. If work cannot go on `main`, push it to a clearly named branch on `org` (for example `archive/<topic>`) and report it.
+5. **The Azure Managed Application edition is a future `managed-app` branch cut from `main`, not a second repository or folder.** Do not start a separate folder or repo for it.
+
 ## Two repositories: the organisation original and a personal mirror
 
 Work is kept in two GitHub repositories. Treat them as follows:
