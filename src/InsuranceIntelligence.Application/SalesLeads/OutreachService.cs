@@ -96,7 +96,7 @@ public sealed class OutreachService(
             }
 
             if (!CanBeContacted(lead) || lead.Triage is not { Fits.Count: > 0 } triage
-                || lead.Outreach.Any(draft => draft.Kind == OutreachKind.Introduction && draft.Status is OutreachStatus.Draft or OutreachStatus.Edited or OutreachStatus.Sent or OutreachStatus.DemoSent))
+                || lead.Outreach.Any(draft => draft.Kind == OutreachKind.Introduction && draft.Status is OutreachStatus.Draft or OutreachStatus.Edited or OutreachStatus.ProviderAccepted or OutreachStatus.Unknown or OutreachStatus.Delivered or OutreachStatus.Sent or OutreachStatus.DemoSent))
             {
                 skipped++;
                 continue;
@@ -147,7 +147,7 @@ public sealed class OutreachService(
         {
             if (lead.Consent?.Status != ContactConsentStatus.Agreed
                 || string.IsNullOrWhiteSpace(lead.Phone)
-                || lead.Outreach.Any(draft => draft.Status is OutreachStatus.Draft or OutreachStatus.Edited))
+                || lead.Outreach.Any(draft => draft.Status is OutreachStatus.Draft or OutreachStatus.Edited or OutreachStatus.ProviderAccepted or OutreachStatus.Unknown))
             {
                 skipped++;
                 continue;
@@ -245,7 +245,7 @@ public sealed class OutreachService(
         var context = tenantContextAccessor.Current;
         var lead = await LoadAsync(leadId, cancellationToken);
         var draft = lead?.Outreach.FirstOrDefault(item => item.DraftId == draftId);
-        if (lead is null || draft is null || draft.Status is OutreachStatus.Sent or OutreachStatus.DemoSent)
+        if (lead is null || draft is null || IsFinalOrUnresolvedSend(draft.Status))
         {
             return null;
         }
@@ -262,7 +262,7 @@ public sealed class OutreachService(
         await permissionService.RequirePermissionAsync(Permission.ManageSalesLeads, cancellationToken);
         var lead = await LoadAsync(leadId, cancellationToken);
         var draft = lead?.Outreach.FirstOrDefault(item => item.DraftId == draftId);
-        if (lead is null || draft is null || draft.Status is OutreachStatus.Sent or OutreachStatus.DemoSent)
+        if (lead is null || draft is null || IsFinalOrUnresolvedSend(draft.Status))
         {
             return false;
         }
@@ -305,8 +305,9 @@ public sealed class OutreachService(
             return new OutreachSendResult(leadId, draftId, "NotFound", "Not found", "This message is no longer in this workspace.");
         }
 
-        if (draft.Status is OutreachStatus.Sent or OutreachStatus.DemoSent)
+        if (IsFinalOrUnresolvedSend(draft.Status))
         {
+            draft = await ReconcileProviderOutcomeAsync(lead, draft, cancellationToken);
             return Result(lead, draft);
         }
 
@@ -337,9 +338,20 @@ public sealed class OutreachService(
                     {
                         blocked = sent.SafeError ?? "WhatsApp did not accept the message.";
                     }
+                    else if (sent.DeliveryState == WhatsAppDeliveryState.Unknown)
+                    {
+                        status = OutreachStatus.Unknown;
+                        messageId = sent.MessageId.ToString("N");
+                        blocked = sent.SafeError ?? "WhatsApp's response is unresolved. Reconcile the message before retrying.";
+                    }
+                    else if (sent.DeliveryState is WhatsAppDeliveryState.Delivered or WhatsAppDeliveryState.Read)
+                    {
+                        status = OutreachStatus.Delivered;
+                        messageId = sent.MessageId.ToString("N");
+                    }
                     else
                     {
-                        status = OutreachStatus.Sent;
+                        status = OutreachStatus.ProviderAccepted;
                         messageId = sent.MessageId.ToString("N");
                     }
                 }
@@ -364,13 +376,26 @@ public sealed class OutreachService(
             Status = status,
             DecidedAt = now,
             DecidedBy = context.UserId,
-            BlockedReason = status == OutreachStatus.Blocked ? blocked : null,
+            BlockedReason = status is OutreachStatus.Blocked or OutreachStatus.Unknown ? blocked : null,
             SentMessageId = messageId,
         };
         await Save(lead, decided, cancellationToken);
         await AuditAsync(
-            status == OutreachStatus.Blocked ? "outreach.blocked" : status == OutreachStatus.DemoSent ? "outreach.demo_sent" : "outreach.sent",
-            lead.LeadId, status == OutreachStatus.Blocked ? $"A message was approved but not sent: {blocked}" : "A message was approved and sent. Message text omitted.", cancellationToken);
+            status switch
+            {
+                OutreachStatus.Blocked => "outreach.blocked",
+                OutreachStatus.Unknown => "outreach.outcome_unknown",
+                OutreachStatus.DemoSent => "outreach.demo_sent",
+                _ => "outreach.sent",
+            },
+            lead.LeadId, status switch
+            {
+                OutreachStatus.Blocked => $"A message was approved but not sent: {blocked}",
+                OutreachStatus.Unknown => "A message was approved but the provider outcome is unresolved; reconcile before retrying.",
+                OutreachStatus.ProviderAccepted => "WhatsApp accepted the approved message; delivery is not yet confirmed.",
+                OutreachStatus.Delivered => "WhatsApp confirmed delivery of the approved message.",
+                _ => "A message was approved and sent. Message text omitted.",
+            }, cancellationToken);
         return Result(lead, decided);
     }
 
@@ -423,6 +448,53 @@ public sealed class OutreachService(
     private static bool IsDemoContact(SalesLeadDetailReadModel lead) =>
         (lead.Phone ?? string.Empty).StartsWith("2567900", StringComparison.Ordinal);
 
+    private static bool IsFinalOrUnresolvedSend(OutreachStatus status) =>
+        status is OutreachStatus.Sent or OutreachStatus.ProviderAccepted or OutreachStatus.Unknown or OutreachStatus.Delivered or OutreachStatus.DemoSent;
+
+    private async Task<OutreachDraft> ReconcileProviderOutcomeAsync(
+        SalesLeadDetailReadModel lead, OutreachDraft draft, CancellationToken cancellationToken)
+    {
+        if (draft.Status is not (OutreachStatus.ProviderAccepted or OutreachStatus.Unknown)
+            || !Guid.TryParse(draft.SentMessageId, out var messageId))
+        {
+            return draft;
+        }
+
+        var message = await messageRepository.GetAsync(tenantContextAccessor.Current.Scope, messageId, cancellationToken);
+        if (message is null)
+        {
+            return draft;
+        }
+
+        var reconciled = message.DeliveryState switch
+        {
+            WhatsAppDeliveryState.Delivered or WhatsAppDeliveryState.Read => draft with
+            {
+                Status = OutreachStatus.Delivered,
+                BlockedReason = null,
+            },
+            WhatsAppDeliveryState.Failed => draft with
+            {
+                Status = OutreachStatus.Blocked,
+                BlockedReason = message.SafeError ?? "WhatsApp confirmed that the message failed. Review before retrying.",
+            },
+            WhatsAppDeliveryState.ProviderAccepted when draft.Status == OutreachStatus.Unknown => draft with
+            {
+                Status = OutreachStatus.ProviderAccepted,
+                BlockedReason = null,
+            },
+            _ => draft,
+        };
+
+        if (reconciled == draft)
+        {
+            return draft;
+        }
+
+        await Save(lead, reconciled, cancellationToken);
+        return reconciled;
+    }
+
     private async Task<string> RecordDemoMessageAsync(
         SalesLeadDetailReadModel lead, OutreachDraft draft, TenantContext context, DateTimeOffset now, CancellationToken cancellationToken)
     {
@@ -459,6 +531,9 @@ public sealed class OutreachService(
         OutreachStatus.Draft => "Draft",
         OutreachStatus.Edited => "Edited, not sent",
         OutreachStatus.Sent => "Sent",
+        OutreachStatus.ProviderAccepted => "Accepted by WhatsApp; delivery pending",
+        OutreachStatus.Unknown => "Outcome unknown; reconciliation required",
+        OutreachStatus.Delivered => "Delivered",
         OutreachStatus.Blocked => "Could not send",
         OutreachStatus.DemoSent => "Demo send, not delivered to a phone",
         _ => "Dismissed",
@@ -470,7 +545,9 @@ public sealed class OutreachService(
         var actor = await NameOfAsync(context.UserId, cancellationToken) ?? "A colleague";
         var activity = updated.Status switch
         {
-            OutreachStatus.Sent => "Approved and sent a message",
+            OutreachStatus.Sent or OutreachStatus.ProviderAccepted => "Approved and sent a message",
+            OutreachStatus.Unknown => "Approved a message with an unresolved delivery outcome",
+            OutreachStatus.Delivered => "WhatsApp confirmed delivery of a message",
             OutreachStatus.DemoSent => "Approved a message (demo send, not delivered to a phone)",
             OutreachStatus.Blocked => "Approved a message that could not be sent",
             OutreachStatus.Dismissed => "Dismissed a drafted message",
@@ -483,7 +560,7 @@ public sealed class OutreachService(
             {
                 Outreach = lead.Outreach.Select(item => item.DraftId == updated.DraftId ? updated : item).ToArray(),
                 Activity = activity is null ? lead.Activity : [.. lead.Activity, new ProspectActivity(DateTimeOffset.UtcNow, activity, actor)],
-                LastInteractionAt = updated.Status is OutreachStatus.Sent or OutreachStatus.DemoSent ? DateTimeOffset.UtcNow : lead.LastInteractionAt,
+                LastInteractionAt = updated.Status is OutreachStatus.Sent or OutreachStatus.ProviderAccepted or OutreachStatus.Delivered or OutreachStatus.DemoSent ? DateTimeOffset.UtcNow : lead.LastInteractionAt,
             },
             cancellationToken);
     }

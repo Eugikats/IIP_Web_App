@@ -129,6 +129,55 @@ public sealed class OutreachServiceTests
     }
 
     [Fact]
+    public async Task Unknown_provider_outcome_is_not_reported_as_sent_or_retried()
+    {
+        var lead = Lead(ContactConsentStatus.Agreed) with
+        {
+            ThreadId = "thread-1",
+            Interests = [new ProspectInterest(MicroinsuranceCatalog.BodaAccident.Name, InterestStrength.Interested, "asked", DateTimeOffset.UtcNow.AddDays(-5))],
+            LastInteractionAt = DateTimeOffset.UtcNow.AddDays(-5),
+        };
+        var store = new Store(lead with { Outreach = [Draft()] });
+        var messages = new Messages();
+        messages.ThreadMessages.Add(new WhatsAppMessage
+        {
+            MessageId = Guid.NewGuid(), Scope = new TenantScope("tenant-demo", "workspace-operations"),
+            ThreadId = "thread-1", BusinessPhoneNumberId = "business-number", ContactWaId = lead.Phone!,
+            Direction = WhatsAppMessageDirection.Inbound, ContentType = WhatsAppContentType.Text,
+            CustomerSafeBody = "Hello", DeliveryState = WhatsAppDeliveryState.Received,
+            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow, CorrelationId = "test",
+        });
+        var sender = new RespondingSend(WhatsAppDeliveryState.Unknown);
+        var service = new OutreachService(new Ctx(), new Allow(), store, store, new NullAudit(), sender, messages,
+            new OutreachOptions(AllowDemoDelivery: false), brand: new KatoBrand("Mavuno Bank", "Mavuno", [MicroinsuranceCatalog.NileShield]));
+        var draftId = store.Lead.Outreach[0].DraftId;
+
+        var first = await service.SendAsync("L1", draftId);
+        var retry = await service.SendAsync("L1", draftId);
+
+        Assert.Equal("Unknown", first.Status);
+        Assert.Contains("reconciliation", first.StatusLabel, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("Unknown", retry.Status);
+        Assert.Equal(1, sender.Calls);
+
+        var outboundId = Guid.Parse(store.Lead.Outreach[0].SentMessageId!);
+        messages.ThreadMessages.Add(new WhatsAppMessage
+        {
+            MessageId = outboundId, Scope = new TenantScope("tenant-demo", "workspace-operations"),
+            ThreadId = "thread-1", BusinessPhoneNumberId = "business-number", ContactWaId = lead.Phone!,
+            Direction = WhatsAppMessageDirection.Outbound, ContentType = WhatsAppContentType.Text,
+            CustomerSafeBody = "Hello Brian", DeliveryState = WhatsAppDeliveryState.Delivered,
+            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow, CorrelationId = "test",
+        });
+        var reconciled = await service.SendAsync("L1", draftId);
+
+        Assert.Equal("Delivered", reconciled.Status);
+        Assert.Equal(1, sender.Calls);
+        await service.DraftFollowUpsAsync();
+        Assert.Single(store.Lead.Outreach);
+    }
+
+    [Fact]
     public async Task Bulk_sending_judges_each_message_on_its_own()
     {
         var (service, store, _) = Build(Lead(ContactConsentStatus.Agreed));
@@ -222,9 +271,25 @@ public sealed class OutreachServiceTests
         public Task<int> ApplyDeliveryEventsAsync(TenantScope scope, IReadOnlyList<WhatsAppDeliveryEvent> events, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
+    private sealed class RespondingSend(WhatsAppDeliveryState state) : IWhatsAppMessagingService
+    {
+        public int Calls { get; private set; }
+        public Task<IReadOnlyList<WhatsAppMessageDto>> GetThreadAsync(string threadId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<WhatsAppMessageDto> SendAsync(SendWhatsAppMessageCommand command, CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            return Task.FromResult(new WhatsAppMessageDto(Guid.NewGuid(), null, command.ThreadId, "business-number", command.RecipientWaId,
+                WhatsAppMessageDirection.Outbound, WhatsAppContentType.Text, command.CustomerSafeBody, null, null, null, state,
+                DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, "Provider acknowledgement timed out; reconcile before retrying."));
+        }
+        public Task<IReadOnlyList<WhatsAppInboundMessage>> IngestInboundAsync(TenantScope scope, IReadOnlyList<WhatsAppInboundMessage> messages, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<int> ApplyDeliveryEventsAsync(TenantScope scope, IReadOnlyList<WhatsAppDeliveryEvent> events, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    }
+
     private sealed class Messages : IWhatsAppMessageRepository
     {
         public List<WhatsAppMessage> Saved { get; } = [];
+        public List<WhatsAppMessage> ThreadMessages { get; } = [];
 
         public Task SaveAsync(WhatsAppMessage message, CancellationToken cancellationToken = default)
         {
@@ -232,10 +297,10 @@ public sealed class OutreachServiceTests
             return Task.CompletedTask;
         }
 
-        public Task<WhatsAppMessage?> GetAsync(TenantScope scope, Guid messageId, CancellationToken cancellationToken = default) => Task.FromResult<WhatsAppMessage?>(null);
+        public Task<WhatsAppMessage?> GetAsync(TenantScope scope, Guid messageId, CancellationToken cancellationToken = default) => Task.FromResult<WhatsAppMessage?>(Saved.Concat(ThreadMessages).FirstOrDefault(message => message.MessageId == messageId && message.Scope == scope));
         public Task<WhatsAppMessage?> FindByProviderMessageIdAsync(TenantScope scope, string providerMessageId, CancellationToken cancellationToken = default) => Task.FromResult<WhatsAppMessage?>(null);
         public Task<WhatsAppMessage?> FindByIdempotencyKeyAsync(TenantScope scope, string idempotencyKey, CancellationToken cancellationToken = default) => Task.FromResult<WhatsAppMessage?>(null);
-        public Task<IReadOnlyList<WhatsAppMessage>> ListThreadAsync(TenantScope scope, string threadId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<WhatsAppMessage>>([]);
+        public Task<IReadOnlyList<WhatsAppMessage>> ListThreadAsync(TenantScope scope, string threadId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<WhatsAppMessage>>(ThreadMessages.Where(message => message.ThreadId == threadId).ToArray());
     }
 
     private sealed class Store(SalesLeadDetailReadModel lead) : ISalesLeadReadRepository, ISalesLeadWriteRepository

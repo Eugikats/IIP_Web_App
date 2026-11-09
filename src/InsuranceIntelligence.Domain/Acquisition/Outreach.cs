@@ -21,6 +21,15 @@ public enum OutreachStatus
     /// <summary>A person approved but it could not go out, and the reason is on the draft.</summary>
     Blocked,
 
+    /// <summary>The provider accepted the request; delivery has not yet been confirmed.</summary>
+    ProviderAccepted,
+
+    /// <summary>The provider outcome is unresolved. Reconcile before retrying to avoid duplicates.</summary>
+    Unknown,
+
+    /// <summary>The provider confirmed delivery to WhatsApp.</summary>
+    Delivered,
+
     /// <summary>Approved in the demonstration: recorded on the demo number, never delivered to a phone.</summary>
     DemoSent,
 

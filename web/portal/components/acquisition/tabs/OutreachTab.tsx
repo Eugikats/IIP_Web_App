@@ -13,7 +13,7 @@ type Result<T> = Promise<{ ok: true; data: T } | { ok: false; message: string }>
 const WAITING = new Set(["Draft", "Edited"]);
 
 function statusTone(status: string): Tone {
-  return status === "Sent" ? "success" : status === "DemoSent" ? "info" : status === "Blocked" ? "danger" : status === "Edited" ? "warning" : "neutral";
+  return status === "Sent" || status === "Delivered" ? "success" : status === "DemoSent" ? "info" : status === "Blocked" ? "danger" : status === "Edited" ? "warning" : status === "Unknown" ? "danger" : status === "ProviderAccepted" ? "info" : "neutral";
 }
 
 /** Messages the drafting agent has prepared, for a person to read, change and approve. Nothing here is sent
@@ -65,7 +65,9 @@ export default function OutreachTab({
   });
 
   const report = (result: OutreachSendResult) => {
-    if (result.status === "Sent") toast.success("Sent on WhatsApp");
+    if (result.status === "Delivered" || result.status === "Sent") toast.success("Delivered on WhatsApp");
+    else if (result.status === "ProviderAccepted") toast("Accepted by WhatsApp", { description: "Delivery is still pending. Check the message status before reporting it as delivered." });
+    else if (result.status === "Unknown") toast("Delivery outcome still unresolved", { description: result.reason ?? result.statusLabel });
     else if (result.status === "DemoSent") toast("Demo send recorded", { description: "Shown in the inbox; not delivered to a phone." });
     else toast.error("Could not send", { description: result.reason ?? result.statusLabel });
   };
@@ -104,9 +106,10 @@ export default function OutreachTab({
     setBusy(null);
     setSelected(new Set());
     if (!result.ok) return toast.error(result.message);
-    const sent = result.data.filter((item) => item.status === "Sent" || item.status === "DemoSent").length;
-    const stopped = result.data.length - sent;
-    toast(sent > 0 ? `${sent} sent` : "Nothing was sent", { description: stopped > 0 ? `${stopped} could not go. The reason is on each row.` : undefined });
+    const accepted = result.data.filter((item) => item.status === "Sent" || item.status === "ProviderAccepted" || item.status === "Delivered" || item.status === "DemoSent").length;
+    const unresolved = result.data.filter((item) => item.status === "Unknown").length;
+    const stopped = result.data.length - accepted - unresolved;
+    toast(accepted > 0 ? `${accepted} accepted or delivered` : "Nothing was accepted", { description: [unresolved > 0 ? `${unresolved} need delivery reconciliation` : null, stopped > 0 ? `${stopped} could not go. The reason is on each row.` : null].filter(Boolean).join("; ") || undefined });
   };
 
   const saveEdit = async (lead: SalesLeadView) => {
@@ -122,7 +125,9 @@ export default function OutreachTab({
       <KpiRow
         items={[
           { label: "Waiting for review", value: String(waiting.length), helper: "Drafted or edited" },
-          { label: "Sent", value: String(count("Sent")), helper: "On WhatsApp" },
+          { label: "Previously marked sent", value: String(count("Sent")), helper: "Older records; delivery may not be confirmed" },
+          { label: "Accepted / unresolved", value: String(count("ProviderAccepted") + count("Unknown")), helper: "Confirm delivery or reconcile unknowns" },
+          { label: "Delivered", value: String(count("Delivered")), helper: "Confirmed by WhatsApp" },
           { label: "Demo sends", value: String(count("DemoSent")), helper: "Not delivered to a phone" },
           { label: "Could not send", value: String(count("Blocked")), helper: "Reason on each row" },
         ]}
@@ -181,6 +186,7 @@ export default function OutreachTab({
                 {rows.map((lead) => {
                   const draft = lead.latestOutreach!;
                   const open = WAITING.has(draft.status);
+                  const checkDelivery = draft.status === "Unknown" || draft.status === "ProviderAccepted";
                   return (
                     <Fragment key={lead.leadId}>
                       <tr className="align-top hover:bg-slate-50/70">
@@ -193,11 +199,16 @@ export default function OutreachTab({
                         </td>
                         <td className="max-w-[26rem] px-3 py-3.5 text-[12px] leading-snug text-slate-600">
                           <p className="m-0 line-clamp-3">{draft.text}</p>
-                          {draft.status === "Blocked" && draft.blockedReason ? <p className="m-0 mt-1 text-[11.5px] font-medium text-red-700">{draft.blockedReason}</p> : null}
+                          {(draft.status === "Blocked" || draft.status === "Unknown") && draft.blockedReason ? <p className="m-0 mt-1 text-[11.5px] font-medium text-red-700">{draft.blockedReason}</p> : null}
                         </td>
                         <td className="whitespace-nowrap px-3 py-3.5"><CipStatusPill tone={statusTone(draft.status)} dot>{draft.statusLabel}</CipStatusPill></td>
                         <td className="px-3 py-3.5 pr-4">
-                          {open || draft.status === "Blocked" ? (
+                          {checkDelivery ? (
+                            <button type="button" onClick={() => void sendOne(lead)} disabled={busy !== null} className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-[12px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+                              {busy === draft.draftId ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
+                              Check delivery status
+                            </button>
+                          ) : open || draft.status === "Blocked" ? (
                             <div className="flex flex-wrap items-center gap-1.5">
                               <button type="button" onClick={() => { setEditing(draft.draftId); setText(draft.text); }} className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-[12px] font-semibold text-slate-700 hover:bg-slate-50">
                                 <PenLine className="h-3.5 w-3.5" aria-hidden />

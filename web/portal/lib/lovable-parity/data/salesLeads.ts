@@ -13,7 +13,7 @@ export type LeadStage = "New" | "GettingToKnow" | "Interested" | "Considering" |
 export type LeadRelationship = "NewToInsurer" | "Registered" | "ExistingCustomer";
 export type ConsentStatus = "NotRecorded" | "Agreed" | "Declined" | "Withdrawn";
 
-export type OutreachStatus = "Draft" | "Edited" | "Sent" | "Blocked" | "DemoSent" | "Dismissed";
+export type OutreachStatus = "Draft" | "Edited" | "Sent" | "ProviderAccepted" | "Unknown" | "Delivered" | "Blocked" | "DemoSent" | "Dismissed";
 export type OutreachDraft = {
   draftId: string;
   kind: string;
