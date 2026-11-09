@@ -171,6 +171,16 @@ The Customer Assistant is the one agent that runs with no staff user. It runs on
 
 Staff-facing context sits beside this: a claim's review score and recommendation are computed from facts already on the claim (rules decide, a model only explains, weights are uncalibrated starting values), are visible only to roles with `ViewFraudSignals`, and a person's Agree or Disagree response needs `OverrideAiRecommendation` and is tied to the facts it was given on.
 
+### 4.7 The Kato workspace (staff chat for acquisition)
+
+`/app/workspace` is a chat for staff with `ViewSalesLeads` (attaching a file needs `ManageSalesLeads`). It reaches three tools through plain keyword routing in `web/portal/lib/workspace.ts` (`routeInstruction`), not a language model, so it can only call tools that exist and declines measures the platform does not record (conversion and response rates).
+
+- **Analyse a workbook** (`POST /api/v1/workspace/prospects/analyse`): reads `.xlsx` or `.csv` (reusing `PolicyImportFileParser`), maps columns by alias, normalises phone numbers to E.164 (a number whose country is unclear is rejected, not guessed), removes duplicates by number, reads consent and opt-out columns, and lists sensitive columns (national ID, account numbers, balances and similar) without reading them. Scoring is the existing `ProspectScoring` rules in `WorkbookProspectAnalyzer`, so each score carries its reasons. A cover that scores only on its built-in baseline is shown as "No clear match" and gets the generic message. Consent in a file is shown as "stated in file (evidence not verified)". The nine progress steps are produced from the run's real counts. Stateless: nothing is stored except an audit event (`workspace.prospects_analysed`).
+- **Export** (`POST /api/v1/workspace/prospects/export`): four-sheet `.xlsx` (Prospect Analysis, Campaign Recommendations, Exclusions, Summary) carrying the analysis id; contact numbers masked; audited (`workspace.analysis_exported`).
+- **Charts** (`GET /api/v1/workspace/charts?metric=&days=`): `new_prospects` per day (East Africa Time), `stage`, `product_interest` and `channel`, counted from lead records; an empty period returns `isEmpty` and the screen shows an empty state.
+
+**Not built:** sending from a workbook analysis (the card shows "Not configured"; sending still runs through the named-approval outreach and checks consent evidence per person); persisting an analysis version server-side (export re-posts the analysis); Meta template create, list and approval-status sync; tool choice by a model; SharePoint ingestion; 30-second and 5-minute customer reminders (the Kato follow-up tool takes a due time but the demo intervals are unverified); per-product onboarding forms; motor and other non-microinsurance products (the catalogue holds ten microinsurance covers, and interest in an unconfigured cover is flagged for human review). A synthetic demo workbook is in `tests/fixtures/workspace/synthetic_uba_attendees.xlsx`.
+
 ## 5. Domain language (the terms that cause mistakes)
 
 | Term | Meaning | Not |
@@ -409,6 +419,8 @@ Every release records, per artifact (API, portal, worker): the commit, the artif
 The separate checkouts and branches (live lineage, SaaS Academy snapshot, v2 social channels, claims-core) were unified in `https://github.com/Otic-Group/IIP_Web_App.git`. `main` is the SaaS edition, created from the live lineage `4818bb1` with everything else ported on top. The `managed-app` branch, the Azure Managed Application edition, is still to be cut from `main` by removing the SaaS-only modules, one commit per module, guarded by a CI check.
 
 A personal mirror, `https://github.com/Eugikats/IIP_Web_App.git`, holds a copy of `main`. The organisation repository is the original and the source of truth. The mirror only receives what is already on the original, and before every push the mirror is fetched to confirm it holds no commits the original lacks (rule in `CLAUDE.md`, "Two repositories").
+
+Where things live (settled 2026-11-09): the only working checkout is `Projects/IIP_Web_App`, with remotes `org` (the original) and `mirror`. The original's default branch is `main`. The Managed Application edition will be a `managed-app` branch of the same repository, not a separate repository. Older checkouts (`agenticIip`, `agenticIip-v2`, `iip_saas`, `iip-build`, `iip-integration-final`) are archived read-only in `Projects/OLD_SAAS`. Unpushed work from them was saved as `archive/*` branches on the original: `archive/whatsapp-learn-more-quick-replies`, `archive/handbook-agent-sections`, `archive/claims-core-verification-gaps` and `archive/command-center-workbook-wip` (parked, not for `main`).
 
 Rules the work followed: the live implementation wins where two implementations exist unless the other is provably a superset in tested behaviour (written capability matrix); live migrations are immutable, and the claims-core and v2 migrations were replaced by one additive migration, `Consolidate_ClaimsCore`; no test count drops without a recorded reason; no force-push.
 

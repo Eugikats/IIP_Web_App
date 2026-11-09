@@ -2,7 +2,7 @@
 
 > Generated from Git-tracked documentation by `scripts/docs/Update-IipDocsCatalog.ps1`. Do not hand-edit.
 
-Total: 475 files.
+Total: 476 files.
 
 ## [docs-root] (9)
 
@@ -113,7 +113,7 @@ Total: 475 files.
 - [iip_ws2_command_center_frontend_vertical_slice_report.md](02-development-engineering/iip_ws2_command_center_frontend_vertical_slice_report.md)
 - [README_UPDATED_FILES.md](02-development-engineering/README_UPDATED_FILES.md)
 
-## 03-design-architecture (47)
+## 03-design-architecture (48)
 
 - [bevaya-competitive-benchmark-2026-07-16.md](03-design-architecture/bevaya-competitive-benchmark-2026-07-16.md)
 - [deep-research-report.md](03-design-architecture/deep-research-report.md)
@@ -160,6 +160,7 @@ Total: 475 files.
 - [iip_whatsapp_thread_outbound_delivery_spec.md](03-design-architecture/iip_whatsapp_thread_outbound_delivery_spec.md)
 - [iip_workflow_architecture_document.md](03-design-architecture/iip_workflow_architecture_document.md)
 - [iip_workflow_legibility_contract.md](03-design-architecture/iip_workflow_legibility_contract.md)
+- [README.md](03-design-architecture/prototype/README.md)
 - [bevaya-design-language.md](03-design-architecture/reference/bevaya-design-language.md)
 - [ui-migration-ledger.md](03-design-architecture/ui-migration-ledger.md)
 
