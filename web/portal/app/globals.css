@@ -483,10 +483,26 @@ textarea:focus-visible {
   position: relative;
   isolation: isolate;
   background:
-    radial-gradient(ellipse 100% 50% at 50% 120%, rgba(120, 150, 255, 0.14), transparent 55%),
-    radial-gradient(ellipse 60% 35% at 12% 100%, rgba(180, 160, 255, 0.1), transparent 50%),
-    radial-gradient(ellipse 60% 35% at 88% 100%, rgba(100, 170, 255, 0.1), transparent 50%),
-    linear-gradient(180deg, #ffffff 0%, #f8fafc 50%, #f4f7fb 100%);
+    radial-gradient(ellipse 120% 78% at 50% 108%, rgba(120, 150, 255, 0.18), transparent 68%),
+    radial-gradient(ellipse 70% 52% at 12% 100%, rgba(180, 160, 255, 0.12), transparent 62%),
+    radial-gradient(ellipse 70% 52% at 88% 100%, rgba(100, 170, 255, 0.12), transparent 62%),
+    #ffffff;
+}
+
+.cip-cc::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: auto 0 0 0;
+  height: min(62%, 520px);
+  z-index: 0;
+  opacity: 0.85;
+  background: radial-gradient(ellipse 90% 80% at 50% 120%, rgba(79, 127, 255, 0.1), transparent 60%);
+}
+
+.cip-cc > * {
+  position: relative;
+  z-index: 1;
 }
 
 .cip-cc-serif {

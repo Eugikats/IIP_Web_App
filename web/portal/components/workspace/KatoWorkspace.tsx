@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { AlertTriangle, BarChart3, CheckCircle2, Download, FileSpreadsheet, Loader2, Paperclip, SendHorizontal, X } from "lucide-react";
+import { AlertTriangle, BarChart3, CheckCircle2, ChevronRight, ClipboardCheck, Download, FileSpreadsheet, FolderOpen, Loader2, Users, X, type LucideIcon } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/Button";
 import { Link } from "@/components/iip/NextRouterCompat";
 import { CommandCenterBlocks } from "@/components/iip/CommandCenterAnswer";
+import CcComposer from "@/components/command-center/CcComposer";
 import { StatusPill, type PillTone } from "@/components/ui/StatusPill";
 import { useUI } from "@/context/UIStateContext";
 import { canUseLocalTestDoubles } from "@/lib/config";
@@ -85,8 +86,8 @@ function Bubble({ children, from }: { children: ReactNode; from: "user" | "kato"
       <div
         className={
           from === "user"
-            ? "max-w-[85%] rounded-dls-card border border-dls-primary-border bg-dls-primary-soft px-3.5 py-2.5 text-[13.5px] text-dls-text-primary"
-            : "w-full max-w-3xl text-[13.5px] text-dls-text-primary"
+            ? "max-w-[85%] rounded-2xl rounded-tr-md bg-[#1769FF] px-4 py-3 text-[14px] leading-relaxed text-white sm:max-w-[75%]"
+            : "w-full max-w-full text-[13.5px] text-dls-text-primary"
         }
       >
         {children}
@@ -483,71 +484,127 @@ export default function KatoWorkspace() {
     }
   }
 
-  if (messages.length === 0) {
+  const hasThread = messages.length > 0;
+  const hasComposer = canAssistant || canView;
+  const queues: QueueLink[] = [];
+  if (canView) queues.push({ to: "/app/acquisition", title: "Leads needing follow-up", detail: "Open prospects and follow-up activity.", icon: Users });
+  if (canWork) queues.push({ to: "/app/work-items", title: "Approvals and assigned work", detail: "Open items assigned to you.", icon: ClipboardCheck });
+  if (canClaims) queues.push({ to: "/app/claims", title: "Claims needing attention", detail: "Open the claims queue.", icon: FolderOpen });
+
+  const composer = (
+    <div className="w-full shrink-0">
+      {file ? (
+        <p className="mx-auto mb-2 flex w-full max-w-3xl items-center gap-2 px-2 text-xs text-slate-600">
+          <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2.5 py-1">
+            <FileSpreadsheet className="h-3.5 w-3.5 text-[#1769FF]" aria-hidden />
+            {file.name}
+            <button type="button" aria-label="Remove attachment" onClick={() => setFile(null)} className="text-slate-400 hover:text-slate-700">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </span>
+        </p>
+      ) : null}
+      {fileError ? <p role="alert" className="mx-auto mb-2 max-w-3xl px-2 text-center text-xs text-dls-danger-text">{fileError}</p> : null}
+      <input
+        ref={fileInput}
+        type="file"
+        accept=".xlsx,.csv"
+        className="sr-only"
+        aria-label="Attach a customer workbook"
+        tabIndex={-1}
+        onChange={(event) => {
+          chooseFile(event.target.files?.[0]);
+          event.target.value = "";
+        }}
+      />
+      <CcComposer
+        value={input}
+        onChange={setInput}
+        onSend={() => void submit()}
+        disabled={!!busy}
+        canSend={!!input.trim() || !!file}
+        placeholder={canView ? "Ask anything or tell me what to do..." : "Ask about claims, customers or your assigned work"}
+        ariaLabel="Message Kato"
+        onAttach={() => fileInput.current?.click()}
+        attachDisabled={!canManage}
+        attachLabel="Attach a customer workbook"
+        attachTitle={canManage ? "Attach an .xlsx or .csv workbook" : "Your role cannot analyse customer files"}
+      />
+      {canView && !hasThread ? (
+        <ul className="m-0 mx-auto mt-3 flex max-w-3xl list-none flex-wrap justify-center gap-1.5 p-0">
+          {SUGGESTIONS.map((suggestion) => (
+            <li key={suggestion}>
+              <button
+                type="button"
+                disabled={!!busy}
+                onClick={() => void submit(suggestion)}
+                className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-slate-200/90 bg-white/80 px-3 py-1 text-xs text-slate-600 transition hover:border-[#1769FF]/40 hover:text-[#0B1640] disabled:opacity-60"
+              >
+                <BarChart3 className="h-3 w-3 text-[#1769FF]" aria-hidden />
+                {suggestion}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+
+  if (!hasThread) {
     return (
-      <div className="mx-auto flex min-h-[calc(100dvh-4.5rem)] w-full max-w-5xl flex-col px-3 py-5 sm:px-6 lg:px-8">
-        <div className="flex flex-1 flex-col justify-center pb-6">
-          <header className="mb-6 pr-12 text-center sm:mb-8">
-            <p className="m-0 text-[12px] font-semibold uppercase tracking-[0.08em] text-dls-text-muted">{workspace?.name ?? "Insurance Intelligence Platform"}</p>
-            <div className="flex flex-wrap items-end justify-center gap-x-3 gap-y-1">
-              <h1 className="cip-cc-serif m-0 mt-2 text-[28px] font-semibold tracking-tight text-dls-text-primary sm:text-[36px]">
-                {localTime?.greeting ?? "Welcome"}{personName ? `, ${personName}` : " to your workspace"}
-              </h1>
-              {localTime ? <p className="m-0 text-[12px] text-dls-text-muted">{localTime.date}</p> : null}
-            </div>
-            <p className="m-0 mt-3 text-[14px] leading-6 text-dls-text-secondary">Ask about claims, customers or acquisition. You can also analyse a customer workbook if your role allows it.</p>
+      <div className="cip-cc -mx-3 -mb-[60px] -mt-7 flex min-h-[100dvh] flex-col px-4 pb-4 pt-7 sm:-mx-6 sm:px-6">
+        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col">
+          <div className="flex-1" aria-hidden="true" />
+          <header className="shrink-0 text-center">
+            <p className="m-0 mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+              {workspace?.name ?? "Insurance Intelligence Platform"}
+              {localTime ? <span className="font-normal normal-case tracking-normal"> · {localTime.date}</span> : null}
+            </p>
+            <h1 className="cip-cc-serif m-0 text-balance text-[1.85rem] font-semibold leading-tight tracking-tight text-[#0B1640] sm:text-[2.35rem]">
+              {localTime?.greeting ?? "Welcome"}
+              {personName ? <>, <span className="text-[#1769FF]">{personName}</span></> : " to your workspace"}
+            </h1>
+            <p className="cip-cc-serif mx-auto mt-3 max-w-lg text-[15px] leading-relaxed text-slate-500 sm:text-base">
+              Ask about claims, customers or acquisition, or analyse a customer workbook if your role allows it.
+            </p>
           </header>
-          {(canAssistant || canView) ? (
-            <div className="mx-auto w-full max-w-3xl rounded-2xl border border-dls-border-subtle bg-dls-surface p-3 sm:p-4">
-              {canView ? <ul className="m-0 mb-2 flex list-none flex-wrap justify-center gap-1.5 p-0">
-                {SUGGESTIONS.map((suggestion) => <li key={suggestion}><button type="button" onClick={() => void submit(suggestion)} className="inline-flex min-h-8 items-center gap-1.5 rounded-dls-pill border border-dls-border-pill bg-dls-surface px-2.5 py-1 text-xs text-dls-text-primary hover:bg-dls-surface-sunken"><BarChart3 className="h-3 w-3" aria-hidden />{suggestion}</button></li>)}
-              </ul> : null}
-              {file ? <p className="m-0 mb-2 inline-flex items-center gap-2 rounded-dls-control border border-dls-border-subtle bg-dls-surface px-2.5 py-1 text-xs text-dls-text-primary"><FileSpreadsheet className="h-3.5 w-3.5" aria-hidden />{file.name}<button type="button" aria-label="Remove attachment" onClick={() => setFile(null)} className="text-dls-text-secondary hover:text-dls-text-primary"><X className="h-3.5 w-3.5" /></button></p> : null}
-              {fileError ? <p role="alert" className="m-0 mb-2 text-xs text-dls-danger-text">{fileError}</p> : null}
-              <form className="flex items-end gap-2" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
-                <input ref={fileInput} type="file" accept=".xlsx,.csv" className="sr-only" aria-label="Attach a customer workbook" onChange={(event) => { chooseFile(event.target.files?.[0]); event.target.value = ""; }} />
-                <Button variant="secondary" aria-label="Attach a customer workbook" disabled={!canManage || !!busy} title={canManage ? "Attach an .xlsx or .csv workbook" : "Your role cannot analyse customer files"} onClick={() => fileInput.current?.click()} icon={<Paperclip />} />
-                <textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void submit(); } }} rows={2} placeholder={canView ? "Ask about your work, or attach a workbook" : "Ask about claims, customers or your assigned work"} aria-label="Message Kato" className="min-h-[48px] flex-1 resize-y rounded-xl border border-dls-border-input bg-dls-surface px-3 py-2.5 text-[14px] text-dls-text-primary placeholder:text-dls-text-faint dls-focus-outline" />
-                <Button variant="primary" type="submit" disabled={(!input.trim() && !file) || !!busy || (!canAssistant && !canView)} aria-label="Send" title="Send message" icon={busy ? <Loader2 className="animate-spin" /> : <SendHorizontal />} />
-              </form>
-            </div>
-          ) : <p className="mx-auto m-0 max-w-xl rounded-dls-card border border-dls-border-subtle bg-dls-surface px-4 py-4 text-center text-[13px] text-dls-text-secondary">Your workspace is ready. Ask your administrator to assign the work queues you need.</p>}
+          <div className="flex-1" aria-hidden="true" />
+          {hasComposer ? (
+            composer
+          ) : (
+            <p className="mx-auto m-0 max-w-xl rounded-2xl border border-slate-100 bg-white px-4 py-4 text-center text-[13px] text-slate-500">
+              Your workspace is ready. Ask your administrator to assign the work queues you need.
+            </p>
+          )}
+          {queues.length > 0 ? (
+            <section className="mx-auto mt-10 w-full max-w-4xl pb-2" aria-label="Your work queues">
+              <div className="mb-5 flex items-center gap-3">
+                <div className="h-px flex-1 bg-slate-200/80" />
+                <h2 className="m-0 shrink-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">Your work queues</h2>
+                <div className="h-px flex-1 bg-slate-200/80" />
+              </div>
+              <div className="grid gap-2 lg:grid-cols-3">
+                {queues.map((queue) => (
+                  <QueueRow key={queue.to} {...queue} />
+                ))}
+              </div>
+            </section>
+          ) : null}
+          <div className="h-[min(8vh,4rem)] shrink-0" aria-hidden="true" />
         </div>
-        {(canView || canWork || canClaims) ? <section aria-label="Your work queues" className="mx-auto w-full max-w-4xl shrink-0 border-t border-dls-border-subtle pt-4 sm:pt-5">
-          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
-            {canView && <WorkspaceLink to="/app/acquisition" title="Leads needing follow-up" detail="Open prospects and follow-up activity." />}
-            {canWork && <WorkspaceLink to="/app/work-items" title="Approvals and assigned work" detail="Open items assigned to you." />}
-            {canClaims && <WorkspaceLink to="/app/claims" title="Claims needing attention" detail="Open the claims queue." />}
-          </div>
-        </section> : null}
       </div>
     );
   }
 
   return (
-          <div className="mx-auto w-full max-w-5xl px-4 py-5 sm:px-6 lg:px-8">
-      <header className="mb-7 pr-12 sm:mb-9">
-        <p className="m-0 text-[12px] font-semibold uppercase tracking-[0.08em] text-dls-text-muted">{workspace?.name ?? "Insurance Intelligence Platform"}</p>
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <h1 className="cip-cc-serif m-0 mt-2 text-[28px] font-semibold tracking-tight text-dls-text-primary sm:text-[34px]">{localTime?.greeting ?? "Welcome"}{personName ? `, ${personName}` : " to your workspace"}</h1>
-          {localTime ? <p className="m-0 text-[12px] text-dls-text-muted">{localTime.date}</p> : null}
-        </div>
-        <p className="m-0 mt-2 max-w-2xl text-[14px] leading-6 text-dls-text-secondary">Your workspace for customer conversations, claims and the work waiting for your team.</p>
-      </header>
-
-      {canView ? <section aria-labelledby="kato-workspace-title" className="flex min-h-[min(62vh,720px)] flex-col border-t border-dls-border-subtle pt-6">
-      <header className="mb-4">
-        <h2 id="kato-workspace-title" className="m-0 text-[19px] font-semibold tracking-tight text-dls-text-primary">Kato for acquisition</h2>
-        <p className="m-0 mt-1 text-[13px] text-dls-text-secondary">Analyse a customer workbook, chart real prospects or export recommendations. Customer messages require a separate review and approval step.</p>
-      </header>
-
-      <div className="flex-1 space-y-4 pb-4" aria-live="polite">
+    <div className="cip-cc -mx-3 -mb-[60px] -mt-7 flex min-h-[100dvh] flex-col px-4 pt-7 sm:-mx-6 sm:px-6">
+      <div className="mx-auto w-full max-w-4xl flex-1 space-y-4 pb-6 pt-3 sm:space-y-5 sm:pt-5" aria-live="polite">
         {messages.map((message) => {
           if (message.from === "user") {
             return (
               <Bubble key={message.id} from="user">
                 {message.fileName && (
-                  <span className="mb-1 flex items-center gap-1.5 text-xs text-dls-text-secondary">
+                  <span className="mb-1 flex items-center gap-1.5 text-xs text-white/80">
                     <FileSpreadsheet className="h-3.5 w-3.5" aria-hidden /> {message.fileName}
                   </span>
                 )}
@@ -558,9 +615,11 @@ export default function KatoWorkspace() {
           return (
             <Bubble key={message.id} from="kato">
               {message.kind === "text" && (
-                <p className={`m-0 ${message.error ? "text-dls-danger-text" : ""}`} role={message.error ? "alert" : undefined}>
-                  {message.text}
-                </p>
+                <div className="w-fit max-w-full rounded-2xl rounded-tl-md border border-slate-100 bg-white px-4 py-3">
+                  <p className={`m-0 ${message.error ? "text-dls-danger-text" : ""}`} role={message.error ? "alert" : undefined}>
+                    {message.text}
+                  </p>
+                </div>
               )}
               {message.kind === "analysis" && <AnalysisCard analysis={message.analysis} role={roleDef.key} canExport={canManage} />}
               {message.kind === "chart" && <ChartCard series={message.series} />}
@@ -570,7 +629,7 @@ export default function KatoWorkspace() {
         })}
         {busy && (
           <Bubble from="kato">
-            <p className="m-0 inline-flex items-center gap-2 text-dls-text-secondary" role="status">
+            <p className="m-0 inline-flex items-center gap-2 text-slate-500" role="status">
               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> {busy}
             </p>
           </Bubble>
@@ -578,84 +637,31 @@ export default function KatoWorkspace() {
         <div ref={endRef} />
       </div>
 
-      <div className="sticky bottom-0 -mx-4 border-t border-dls-border-subtle bg-dls-bg-page px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
-        {canView ? <ul className="m-0 mb-2 flex list-none flex-wrap gap-1.5 p-0">
-          {SUGGESTIONS.map((suggestion) => (
-            <li key={suggestion}>
-              <button
-                type="button"
-                disabled={!!busy}
-                onClick={() => submit(suggestion)}
-                className="inline-flex items-center gap-1.5 rounded-dls-pill border border-dls-border-pill bg-dls-surface px-2.5 py-1 text-xs text-dls-text-primary hover:bg-dls-surface-sunken disabled:opacity-60"
-              >
-                <BarChart3 className="h-3 w-3" aria-hidden /> {suggestion}
-              </button>
-            </li>
-          ))}
-        </ul> : null}
-        {file && (
-          <p className="m-0 mb-2 inline-flex items-center gap-2 rounded-dls-control border border-dls-border-subtle bg-dls-surface px-2.5 py-1 text-xs text-dls-text-primary">
-            <FileSpreadsheet className="h-3.5 w-3.5" aria-hidden /> {file.name}
-            <button type="button" aria-label="Remove attachment" onClick={() => setFile(null)} className="text-dls-text-secondary hover:text-dls-text-primary">
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </p>
-        )}
-        {fileError && <p role="alert" className="m-0 mb-2 text-xs text-dls-danger-text">{fileError}</p>}
-        <form
-          className="flex items-end gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void submit();
-          }}
-        >
-          <input
-            ref={fileInput}
-            type="file"
-            accept=".xlsx,.csv"
-            className="sr-only"
-            aria-label="Attach a customer workbook"
-            onChange={(event) => {
-              chooseFile(event.target.files?.[0]);
-              event.target.value = "";
-            }}
-          />
-          <Button
-            variant="secondary"
-            aria-label="Attach a customer workbook"
-            disabled={!canManage || !!busy}
-            title={canManage ? "Attach an .xlsx or .csv workbook" : "Your role cannot analyse customer files"}
-            onClick={() => fileInput.current?.click()}
-            icon={<Paperclip />}
-          />
-          <textarea
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                void submit();
-              }
-            }}
-            rows={1}
-            placeholder="Ask about your work, or attach a workbook"
-            aria-label="Message Kato"
-            className="min-h-[38px] flex-1 resize-none rounded-dls-control border border-dls-border-input bg-dls-surface px-3 py-2 text-[13.5px] text-dls-text-primary placeholder:text-dls-text-faint dls-focus-outline"
-          />
-          <Button variant="primary" type="submit" disabled={(!input.trim() && !file) || !!busy} aria-label="Send" icon={<SendHorizontal />} />
-        </form>
-      </div>
-      </section> : null}
+      {hasComposer ? (
+        <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-white via-white/95 to-transparent px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-8 sm:-mx-6 sm:px-6">
+          {composer}
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function WorkspaceLink({ to, title, detail }: { to: string; title: string; detail: string }) {
+type QueueLink = { to: string; title: string; detail: string; icon: LucideIcon };
+
+function QueueRow({ to, title, detail, icon: Icon }: QueueLink) {
   return (
-    <Link to={to} className="group block min-h-[92px] rounded-dls-card border border-dls-border-subtle bg-dls-surface px-3 py-3 transition-colors hover:border-dls-primary-border hover:bg-dls-primary-soft dls-focus-outline sm:min-h-[104px] sm:px-4 sm:py-4">
-      <span className="block text-[14px] font-semibold text-dls-text-primary">{title}</span>
-      <span className="mt-1 block text-[13px] leading-5 text-dls-text-secondary">{detail}</span>
-      <span className="mt-3 block text-[12px] font-semibold text-dls-primary">Open queue</span>
+    <Link
+      to={to}
+      className="flex w-full items-start gap-3 rounded-xl px-2 py-2 text-left transition hover:bg-slate-50/80 dls-focus-outline"
+    >
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-50">
+        <Icon className="h-5 w-5 text-[#1769FF]" aria-hidden />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[15px] font-semibold text-[#0B1640]">{title}</span>
+        <span className="mt-0.5 block text-[13px] leading-snug text-slate-500">{detail}</span>
+      </span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-slate-300 lg:hidden" aria-hidden />
     </Link>
   );
 }

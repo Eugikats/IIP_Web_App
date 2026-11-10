@@ -37,7 +37,7 @@ IIP is CIP's sister product and shares its look, so the accent changed from viol
 
 ## Where things live
 
-- Landing screen is the **Workspace** at `/app/workspace`. It greets the signed-in staff member, links only to queues their permissions allow, and retains the Kato acquisition workbook, chart and export workflow for authorized staff. The Brief remains at `/app/brief`; the Assistant is at `/app/assistant` and persisted conversations reopen from Recent chats. Queue counts appear only when supplied by permitted live data.
+- Landing screen is the **Workspace** at `/app/workspace`. It greets the signed-in staff member, links only to queues their permissions allow, and retains the Kato acquisition workbook, chart and export workflow for authorized staff. It copies CIP's Command Center layout (2026-11-10): a centred serif greeting with the first name in the accent blue, one round composer with a paperclip for workbooks and a blue send button, and a "Your work queues" row of icon links under a hairline divider. The soft blue wash behind it (`.cip-cc` in `app/globals.css`, also used by the Assistant page) is a named exception to the gradient rule, set by the owner to match CIP; no other screen takes it besides those two. The Brief remains at `/app/brief`; the Assistant is at `/app/assistant` and persisted conversations reopen from Recent chats. Queue counts appear only when supplied by permitted live data.
 - The icon rail groups destinations rather than capping them at seven; see navigation model §5.2 (amended 2026-09-11) for why and §6 for the landing decision.
 - Toasts are rare and governed: off-screen, this user's work, actionable now, not already shown. Everything else is a badge, an inline message, or the notification bell. Navigation model §8.
 

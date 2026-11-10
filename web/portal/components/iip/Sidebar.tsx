@@ -371,20 +371,21 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
         </button>
       )}
 
-      <div
-        role="img"
-        aria-label={`Workspace: ${workspaceName}`}
-        title={workspaceName}
-        className={cn(
-          "mb-4 flex h-10 shrink-0 items-center rounded-[10px] bg-dls-primary-soft text-[13px] font-bold text-dls-primary",
-          expanded ? "gap-2.5 px-2.5" : "w-10 justify-center",
-        )}
-      >
-        <span className={cn(!expanded && "sr-only", expanded && "grid h-6 w-6 shrink-0 place-items-center rounded-dls-chip border border-dls-border-subtle bg-dls-surface text-[11px]")}>
-          {workspaceName.slice(0, 2).toUpperCase()}
-        </span>
-        {expanded && <span className="animate-label-in truncate text-dls-text-primary">{workspaceName}</span>}
-      </div>
+      {/* The workspace chip only shows when the rail is expanded. Collapsed, it was an empty blue square
+          (the initials were screen-reader only), so it is left out and the rail starts at the first destination. */}
+      {expanded && (
+        <div
+          role="img"
+          aria-label={`Workspace: ${workspaceName}`}
+          title={workspaceName}
+          className="mb-4 flex h-10 shrink-0 items-center gap-2.5 rounded-[10px] bg-dls-primary-soft px-2.5 text-[13px] font-bold text-dls-primary"
+        >
+          <span className="grid h-6 w-6 shrink-0 place-items-center rounded-dls-chip border border-dls-border-subtle bg-dls-surface text-[11px]">
+            {workspaceName.slice(0, 2).toUpperCase()}
+          </span>
+          <span className="animate-label-in truncate text-dls-text-primary">{workspaceName}</span>
+        </div>
+      )}
 
       <div className="relative flex min-h-0 flex-1 flex-col">
         {scrollClipped.top && (
