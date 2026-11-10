@@ -36,6 +36,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
     public DbSet<PersistedFieldProposal> FieldProposals => Set<PersistedFieldProposal>();
     public DbSet<PersistedAuthenticityReport> AuthenticityReports => Set<PersistedAuthenticityReport>();
     public DbSet<PersistedClaimAssessment> ClaimAssessments => Set<PersistedClaimAssessment>();
+    public DbSet<PersistedFraudAgentReview> FraudAgentReviews => Set<PersistedFraudAgentReview>();
     public DbSet<PersistedUploadSession> UploadSessions => Set<PersistedUploadSession>();
     public DbSet<PersistedClaimsPackDispatch> ClaimsPackDispatches => Set<PersistedClaimsPackDispatch>();
     public DbSet<PersistedClaimsPackShareLink> ClaimsPackShareLinks => Set<PersistedClaimsPackShareLink>();
@@ -185,6 +186,8 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         modelBuilder.Entity<PersistedAuthenticityReport>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.PerceptualHash });
         ConfigureScopedJson(modelBuilder.Entity<PersistedClaimAssessment>(), "ClaimAssessments", "AssessmentId");
         modelBuilder.Entity<PersistedClaimAssessment>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId, entity.GeneratedAt });
+        ConfigureScopedJson(modelBuilder.Entity<PersistedFraudAgentReview>(), "FraudAgentReviews", "ReviewId");
+        modelBuilder.Entity<PersistedFraudAgentReview>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId, entity.GeneratedAt });
         ConfigureScopedJson(modelBuilder.Entity<PersistedClaimsPackDispatch>(), "ClaimsPackDispatches", "DispatchId");
         modelBuilder.Entity<PersistedClaimsPackDispatch>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.CaseId });
         ConfigureScopedJson(modelBuilder.Entity<PersistedClaimsPackShareLink>(), "ClaimsPackShareLinks", "LinkId");
@@ -638,6 +641,7 @@ public sealed class PersistedClaimsPackShareLink : PersistedScopedJson { public 
 public sealed class PersistedUploadSession : PersistedScopedJson { public Guid CaseId { get; set; } public string Fingerprint { get; set; } = string.Empty; }
 public sealed class PersistedUploadPart : PersistedScopedJson { public Guid UploadId { get; set; } public int PartIndex { get; set; } public byte[] Data { get; set; } = []; }
 public sealed class PersistedClaimAssessment : PersistedScopedJson { public Guid CaseId { get; set; } public DateTimeOffset GeneratedAt { get; set; } }
+public sealed class PersistedFraudAgentReview : PersistedScopedJson { public Guid CaseId { get; set; } public DateTimeOffset GeneratedAt { get; set; } }
 public sealed class PersistedBackgroundJob : PersistedScopedJson
 {
     public string Queue { get; set; } = string.Empty;

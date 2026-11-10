@@ -73,10 +73,12 @@ public static class AgentCatalog
             AgentImplementationKind.AiServiceBacked, ["document.read", "documents.gaps.read", "provider_health.read"]),
         new("policy-intelligence", "Policy Intelligence Agent", "Explains policy and coverage from approved, tenant-scoped sources only.", "Medium", HumanApprovalRequired: false,
             AgentImplementationKind.ModelBacked, ["knowledge.search", "policy.read"]),
-        // Rule-based: FraudRuleEngine (duplicate contact, claim velocity, duplicate policy, low
-        // completeness signals). No chat/LLM call site exists.
-        new("risk-fraud-signal", "Risk & Fraud Signal Agent", "Raises advisory risk and fraud indicators for human review, never accusations or verdicts.", "Medium", HumanApprovalRequired: false,
-            AgentImplementationKind.RuleBased, ["claim.read", "document.read", "audit.read"]),
+        // Model-backed (2026-11-10): FraudAgentService reads a claim against the Uganda fraud playbook
+        // (FraudPlaybook) and writes findings that each cite the claim facts they rest on. The fixed
+        // FraudRuleEngine rules (duplicate contact, claim velocity, duplicate policy, early claim, high
+        // value, low completeness) still run and are given to the agent as facts. Findings are advisory.
+        new("risk-fraud-signal", "Risk & Fraud Signal Agent", "Reads a claim against a written playbook of how insurance fraud shows up in Uganda and raises advisory risk indicators, each citing the claim facts it rests on, for human review, never accusations or verdicts.", "Medium", HumanApprovalRequired: false,
+            AgentImplementationKind.ModelBacked, ["claim.read", "document.read", "audit.read"]),
         // Writes a short plain explanation of the claim recommendation from facts the platform has already
         // worked out (score, missing documents, picture checks). Its wording is checked and dropped if it
         // sounds like a decision or an accusation. The recommendation itself is rules, not this agent.

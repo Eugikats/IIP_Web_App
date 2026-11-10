@@ -16,6 +16,9 @@ public enum RiskFactorSource
 
     /// <summary>A model's reading of the claim. Counted at a low weight and never alone enough to raise the band above Moderate.</summary>
     ModelReading,
+
+    /// <summary>A finding from the fraud agent's review, which cites the claim facts it rests on. Counted at a lower weight than a fixed rule, at most three in total.</summary>
+    FraudAgent,
 }
 
 public enum RiskBand
@@ -89,6 +92,18 @@ public static class ClaimRiskScorer
 
     public const decimal ModelFactorWeight = 0.08m;
 
+    /// <summary>The most findings from the fraud agent that add to the score, however many it writes.</summary>
+    public const int MaxFraudAgentFactors = 3;
+
+    /// <summary>Weight of a fraud agent finding by severity: below a fixed rule of the same severity, because a model's reading is a lead, not a measurement.</summary>
+    public static decimal AgentWeightFor(FraudSignalSeverity severity) => severity switch
+    {
+        FraudSignalSeverity.AdvisorySignal => 0.06m,
+        FraudSignalSeverity.PotentialAnomaly => 0.15m,
+        FraudSignalSeverity.RequiresInvestigation => 0.28m,
+        _ => 0.06m,
+    };
+
     /// <summary>Weight of a rule signal by its severity.</summary>
     public static decimal WeightFor(FraudSignalSeverity severity) => severity switch
     {
@@ -146,11 +161,17 @@ public static class ClaimRiskScorer
         // The notes beyond the second are left out of the list as well as the arithmetic, so what is shown
         // is exactly what was counted.
         var seenModel = 0;
+        var seenAgent = 0;
         var listed = new List<RiskFactor>();
         var counted = new List<RiskFactor>();
         foreach (var factor in ordered)
         {
             if (factor.Source == RiskFactorSource.ModelReading && ++seenModel > MaxModelFactors)
+            {
+                continue;
+            }
+
+            if (factor.Source == RiskFactorSource.FraudAgent && ++seenAgent > MaxFraudAgentFactors)
             {
                 continue;
             }

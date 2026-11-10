@@ -92,6 +92,12 @@ public sealed class ClaimReviewJobHandler : IBackgroundJobHandler
         timeout.CancelAfter(RunTimeout);
         await services.GetRequiredService<IClaimsSummaryService>().SummarizeAsync(caseId, job.Scope, SystemActorId, job.CorrelationId, timeout.Token);
 
+        // The fraud agent reads the claim against the Uganda playbook, so the score below includes what it
+        // found. It checks its own gate (a workspace can switch it off) and a model failure leaves it out
+        // without failing the review.
+        await services.GetRequiredService<InsuranceIntelligence.Application.Fraud.IFraudAgentService>()
+            .RunAsync(job.Scope, caseId, SystemActorId, job.CorrelationId, timeout.Token);
+
         // Then the review score and recommendation, which read the summary's model notes (item 18).
         // The score and recommendation are rules and are always kept; only the written explanation
         // depends on the model, and a model failure leaves it out rather than failing the review.

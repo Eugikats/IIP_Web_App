@@ -578,6 +578,27 @@ public sealed record AuditEvent(
             AuditReason: null,
             CorrelationId: correlationId);
 
+    /// <summary>The fraud agent reviewed a claim. Records how many findings it kept, never their text.</summary>
+    public static AuditEvent FraudAgentReviewPrepared(TenantScope scope, Guid caseId, string userId, int findings, int leftOut, string provider, string correlationId) =>
+        new(
+            Guid.NewGuid(),
+            scope,
+            caseId,
+            caseId.ToString(),
+            userId,
+            userId.StartsWith("system:", StringComparison.Ordinal) ? ActorType.System : ActorType.User,
+            "claim.fraud_agent_review.prepared",
+            DateTimeOffset.UtcNow,
+            BeforeStatus: null,
+            AfterStatus: $"findings:{findings};left_out:{leftOut}",
+            EvidenceIds: [caseId.ToString()],
+            ModelProvider: provider,
+            Confidence: null,
+            ValidationResult: "human_review_required",
+            ApprovalId: null,
+            AuditReason: null,
+            CorrelationId: correlationId);
+
     /// <summary>A person agreed or disagreed with the recommendation (build-loop item 18).</summary>
     public static AuditEvent ClaimAssessmentResponse(TenantScope scope, Guid caseId, string userId, string response, string recommendation, string correlationId) =>
         new(

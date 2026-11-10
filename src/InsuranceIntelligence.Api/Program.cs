@@ -680,6 +680,7 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.Documents.IDocument
 builder.Services.AddScoped<InsuranceIntelligence.Application.Documents.IFieldProposalService, InsuranceIntelligence.Application.Documents.FieldProposalService>();
 builder.Services.AddSingleton<InsuranceIntelligence.Domain.Documents.IImageForensicsReader, InsuranceIntelligence.Api.Documents.MagickImageForensicsReader>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Documents.IAuthenticityService, InsuranceIntelligence.Application.Documents.AuthenticityService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Fraud.IFraudAgentService, InsuranceIntelligence.Application.Fraud.FraudAgentService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Fraud.IClaimAssessmentService, InsuranceIntelligence.Application.Fraud.ClaimAssessmentService>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Cases.IClaimantStatusPresenter, InsuranceIntelligence.Application.Cases.ClaimantStatusPresenter>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Cases.IClaimStatusChangeService, InsuranceIntelligence.Application.Cases.ClaimStatusChangeService>();
@@ -1706,6 +1707,10 @@ app.MapPost("/api/v1/cases/{caseId:guid}/assessment/refresh", InsuranceIntellige
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewFraudSignals));
 app.MapPost("/api/v1/cases/{caseId:guid}/assessment/response", InsuranceIntelligence.Api.Fraud.ClaimAssessmentEndpoints.Respond)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.OverrideAiRecommendation));
+app.MapGet("/api/v1/cases/{caseId:guid}/fraud-review", InsuranceIntelligence.Api.Fraud.FraudAgentEndpoints.Get)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewFraudSignals));
+app.MapPost("/api/v1/cases/{caseId:guid}/fraud-review/run", InsuranceIntelligence.Api.Fraud.FraudAgentEndpoints.Run)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewFraudSignals));
 app.MapGet("/api/v1/cases/{caseId:guid}/field-proposals", InsuranceIntelligence.Api.Cases.FieldProposalEndpoints.List)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAssignedClaims, Permission.ViewAllClaims));
 app.MapPost("/api/v1/cases/{caseId:guid}/field-proposals/{proposalId:guid}/accept", InsuranceIntelligence.Api.Cases.FieldProposalEndpoints.Accept)

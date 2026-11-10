@@ -30,6 +30,8 @@ import { useClaimsSummary } from "@/lib/lovable-parity/data/claimsSummary";
 import { useClaimChecklist } from "@/lib/lovable-parity/data/claimChecklist";
 import { useFraudSignals, type FraudSeverity } from "@/lib/lovable-parity/data/fraud";
 import { useCaseReview } from "@/lib/lovable-parity/data/caseReview";
+import { useFraudAgentReview } from "@/lib/lovable-parity/data/fraudAgent";
+import FraudAgentCard from "@/components/claims/FraudAgentCard";
 import type { ChannelSendAvailability } from "@/lib/providerHealth";
 import { useUI } from "@/context/UIStateContext";
 import { extractionHref } from "@/lib/workItemLinks";
@@ -120,6 +122,7 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
   const { signals: fraudSignals, loading: fraudLoading, error: fraudError } = useFraudSignals();
   const caseFraudSignals = fraudSignals.filter((signal) => signal.relatedCaseIds.includes(claimId));
   const { review: persistedReview, loading: reviewLoading, load: loadReview } = useCaseReview(claimId, roleDef.key);
+  const fraudAgent = useFraudAgentReview(claimId, roleDef.key);
   useEffect(() => { if (claimId) void loadReview(); }, [claimId, loadReview]);
   const { checklist, error: checklistError } = useClaimChecklist(claimId, roleDef.key, detail?.documents.length);
   // Freshly generated summary takes precedence; fall back to the persisted one loaded on mount.
@@ -1186,15 +1189,27 @@ function ClaimReviewLive({ claimId }: { claimId: string }) {
             </GlassCard>
           ) : null}
 
-          <div className="rounded-dls-card border border-dls-warning-dot bg-dls-warning-tint p-4">
-            <div className="mb-1 flex items-center gap-2">
-              <TriangleAlert className="h-3.5 w-3.5 text-dls-warning-dot" aria-hidden="true" />
-              <div className="text-[11px] font-bold uppercase tracking-[0.05em] text-dls-warning-text">Advisory boundary</div>
+          {!fraudAgent.denied ? (
+            <FraudAgentCard
+              review={fraudAgent.review}
+              loading={fraudAgent.loading}
+              error={fraudAgent.error}
+              running={fraudAgent.running}
+              onRun={() => void fraudAgent.run()}
+            />
+          ) : null}
+
+          <aside aria-label="Advisory boundary" className="rounded-dls-card border border-dls-border-subtle bg-dls-surface p-4">
+            <div className="flex items-start gap-3">
+              <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-dls-warning-dot" aria-hidden="true" />
+              <div className="min-w-0">
+                <p className="m-0 text-[13px] font-semibold text-dls-text-primary">Advisory only</p>
+                <p className="m-0 mt-1 text-[12.5px] leading-5 text-dls-text-secondary">
+                  Fraud and risk signals are things worth checking, not findings. The evidence behind each one is shown before any investigation step goes ahead, and a person decides what happens next.
+                </p>
+              </div>
             </div>
-            <p className="text-[13px] leading-snug text-dls-text-secondary">
-              Fraud and risk outputs are advisory only. The platform must show backend evidence before any human investigation step proceeds.
-            </p>
-          </div>
+          </aside>
         </div>
       </div>
       <CustomerUpdateGovernedDialog

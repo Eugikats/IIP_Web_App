@@ -103,7 +103,8 @@ public sealed class ClaimAssessmentService(
     IChatCompletionProvider chatCompletionProvider,
     IAgentRunRecorder agentRunRecorder,
     IAgentActionLogRepository actionLogRepository,
-    IAuditRepository auditRepository) : IClaimAssessmentService
+    IAuditRepository auditRepository,
+    IFraudAgentService fraudAgentService) : IClaimAssessmentService
 {
     public const string AgentKey = "claim-recommendation";
     public const string NarrativeMarker = "TASK: claim-recommendation-narrative";
@@ -299,6 +300,23 @@ public sealed class ClaimAssessmentService(
             }
         }
 
+        // What the fraud agent found when it read the claim against the playbook, kept only while the claim
+        // is unchanged since it did. Each finding cites the facts it rests on; none of it is a decision.
+        var agentReview = await fraudAgentService.GetCurrentAsync(scope, caseId, cancellationToken);
+        if (agentReview is not null)
+        {
+            foreach (var finding in agentReview.Findings)
+            {
+                factors.Add(new RiskFactor(
+                    $"agent:{finding.IndicatorCode}:{string.Join('+', finding.FactIds)}",
+                    RiskFactorSource.FraudAgent,
+                    ClaimRiskScorer.AgentWeightFor(finding.Severity),
+                    ReadableIds($"{finding.Title}. {finding.Observation}"),
+                    new AssessmentSource(SourceKind.ModelReading, agentReview.ReviewId.ToString(), "The fraud agent's review"),
+                    HumanReading.NotLookedAt));
+            }
+        }
+
         // What the model noticed while summarising the claim. Fraud notes only; underwriting notes are not about this.
         var review = await caseReviewRepository.GetLatestForCaseAsync(caseId, scope, cancellationToken);
         if (review is not null)
@@ -454,6 +472,7 @@ public sealed class ClaimAssessmentService(
             {
                 RiskFactorSource.RuleEngine => "Fixed rule",
                 RiskFactorSource.PictureCheck => "Picture check",
+                RiskFactorSource.FraudAgent => "Fraud agent",
                 _ => "Model reading",
             },
             factor.Weight >= 0.35m ? "Strong" : factor.Weight >= 0.15m ? "Moderate" : "Light",

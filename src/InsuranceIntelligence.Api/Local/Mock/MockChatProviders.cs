@@ -47,6 +47,23 @@ public sealed class MockChatCompletionProvider : IChatCompletionProvider
                 CompletionTokens: Math.Max(1, narrative.Length / 4)));
         }
 
+        if (request.Prompt.StartsWith(InsuranceIntelligence.Application.Fraud.FraudAgentService.TaskMarker, StringComparison.Ordinal))
+        {
+            // A real finding needs a real model. The mock raises one only when the claim itself carries the
+            // test marker, citing the first fact, so tests and demos can see what a finding looks like.
+            var fraudJson = request.Prompt.Contains(MockRiskMarker, StringComparison.Ordinal)
+                ? "{\"findings\":[{\"indicator\":\"ANY-NARRATIVE\",\"title\":\"Description mentions an item the policy does not list\",\"observation\":\"The incident description refers to an item that the policy record does not list. This may be a simple omission.\",\"check\":\"Compare the description with the policy schedule and ask the claimant about the item.\",\"severity\":\"advisory\",\"facts\":[\"F3\"]}]}"
+                : "{\"findings\":[]}";
+            return Task.FromResult(new ChatCompletionResult(
+                fraudJson,
+                "Mock",
+                "mock-chat",
+                DateTimeOffset.UtcNow,
+                "mock-chat-v1",
+                PromptTokens: Math.Max(1, request.Prompt.Length / 4),
+                CompletionTokens: Math.Max(1, fraudJson.Length / 4)));
+        }
+
         var facts = new List<string>();
         var mockRisk = request.Prompt.Contains(MockRiskMarker, StringComparison.Ordinal);
         foreach (var line in request.Prompt.Replace("\r\n", "\n").Split('\n'))

@@ -34,7 +34,7 @@ public static class TenantPolicyEndpoints
         new("Customer communications require approval before send", true,
             "OutboundSmsGuard.IsDispatchPermitted and the equivalent email/WhatsApp checks, a message sends only if approved, or is explicitly low-risk and the tenant opted into transactional auto-send. Applies to WhatsApp, Email, SMS."),
         new("Fraud signals are advisory only", true,
-            "The risk-fraud-signal agent is RuleBased (FraudRuleEngine) and has no code path that writes a fraud determination, only advisory signals a human reviews."),
+            "The risk-fraud-signal agent (a fraud playbook read by a model, plus the FraudRuleEngine rules) has no code path that writes a fraud determination. Its findings must cite claim facts, are checked for decision and accusation wording before they are kept, and are advisory signals a human reviews."),
         new("Unknown knowledge sensitivity is blocked from retrieval by default", true,
             "Knowledge.tsx / the knowledge retrieval index, a document's sensitivity must be explicitly classified as approved before it is eligible for AI grounding; unknown, contains_secrets, and contains_unapproved_pii are excluded."),
         new("Extraction human-review threshold", false,
