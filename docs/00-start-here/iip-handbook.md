@@ -268,6 +268,7 @@ Two environment guides in `docs/05-deployment-release-enablement/` are still Dra
 ```text
 src/            .NET modules             tests/        .NET tests and fixtures
 web/portal/     Next.js portal           infra/        Bicep, Marketplace packaging, ADRs
+android/        Android WebView shell (see android/README.md)
 docs/           documentation            scripts/      setup, docs catalog, guard, tenant-isolation check
 tools/          operator and QA utilities   prototypes/   non-production experiments only
 .github/        CI workflows             .scratch/     temporary work, never authoritative
