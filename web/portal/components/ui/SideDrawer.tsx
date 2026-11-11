@@ -15,6 +15,10 @@ import { X } from "lucide-react";
  *
  * Focus rules match the modal (§8.14): focus moves in on open, is trapped while
  * open, Escape closes, and focus returns to the trigger on close.
+ *
+ * Stacks above the modal (z-40/41), because it is opened from inside one (a template in Settings).
+ * Underneath it, the drawer was hidden behind the Settings window while its own inert pass froze that
+ * window, so a click on a template appeared to do nothing and left the window dead.
  */
 const FOCUSABLE =
   'button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
@@ -68,13 +72,18 @@ export function SideDrawer({
     const previousInert = background.map((el) => el.inert);
     background.forEach((el) => (el.inert = true));
 
+    // Listens in the capture phase and stops the key there. A drawer is often opened from inside a modal
+    // (a template from Settings), and the modal listens on the document too: without this, Escape closed
+    // the drawer and the Settings window with it, and Tab was trapped by two handlers at once.
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         event.preventDefault();
+        event.stopImmediatePropagation();
         close();
         return;
       }
       if (event.key !== "Tab") return;
+      event.stopImmediatePropagation();
       const items = focusable();
       if (items.length === 0) {
         event.preventDefault();
@@ -92,12 +101,12 @@ export function SideDrawer({
       }
     }
 
-    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("keydown", onKeyDown, true);
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
     return () => {
-      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("keydown", onKeyDown, true);
       document.body.style.overflow = previousOverflow;
       background.forEach((el, i) => (el.inert = previousInert[i]));
       window.requestAnimationFrame(() => previousFocus?.focus());
@@ -110,7 +119,7 @@ export function SideDrawer({
     <>
       {/* Scrim, §8.14 backdrop value. No blur: glassmorphism is banned. */}
       <div
-        className="fixed inset-0 z-30 bg-dls-scrim/45 transition-opacity duration-dls-base ease-dls motion-reduce:transition-none"
+        className="fixed inset-0 z-[60] bg-dls-scrim/45 transition-opacity duration-dls-base ease-dls motion-reduce:transition-none"
         onClick={close}
         aria-hidden="true"
       />
@@ -121,7 +130,7 @@ export function SideDrawer({
         aria-labelledby="dls-drawer-title"
         aria-describedby={description ? "dls-drawer-description" : undefined}
         tabIndex={-1}
-        className="fixed right-0 top-0 z-[31] flex h-full w-full max-w-[min(440px,92vw)] flex-col border-l border-dls-border-subtle bg-dls-surface shadow-dls-modal transition-opacity duration-dls-base ease-dls motion-reduce:transition-none"
+        className="fixed right-0 top-0 z-[61] flex h-full w-full max-w-[min(440px,92vw)] flex-col border-l border-dls-border-subtle bg-dls-surface shadow-dls-modal transition-opacity duration-dls-base ease-dls motion-reduce:transition-none"
       >
         <div className="flex items-start justify-between gap-4 border-b border-dls-border-subtle px-[22px] py-5">
           <div className="min-w-0">
