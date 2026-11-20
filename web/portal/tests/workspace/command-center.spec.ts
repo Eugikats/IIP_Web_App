@@ -61,12 +61,17 @@ test("Settings opens as a window holding the settings screens, not as a page", a
 test("The sidebar keeps to the essentials and every other screen is one step away", async ({ page }) => {
   await page.goto("/app");
   const nav = page.getByRole("complementary", { name: "Primary navigation" });
-  for (const label of ["Command Center", "Claims", "Acquisition", "Inbox", "Data Hub"]) {
-    await expect(nav.getByRole("link", { name: label })).toBeVisible();
+  for (const label of ["Workspace", "Claims", "Acquisition", "Automations"]) {
+    await expect(nav.getByRole("link", { name: label, exact: true })).toBeVisible();
   }
+  await expect(nav.getByRole("button", { name: "Data Hub" })).toBeVisible();
   await expect(nav.getByRole("link", { name: "Underwriting" })).toHaveCount(0);
-  await nav.getByRole("button", { name: /Open profile menu/ }).click();
-  await expect(page.getByRole("menuitem", { name: "Underwriting" })).toBeVisible();
+  await expect(nav.getByRole("link", { name: "Inbox" })).toHaveCount(0);
+  await nav.getByRole("button", { name: "More tools" }).click();
+  const more = page.getByRole("dialog", { name: "More tools" });
+  for (const label of ["Approvals", "Inbox", "Underwriting", "IIP Academy"]) {
+    await expect(more.getByRole("menuitem", { name: label })).toBeVisible();
+  }
 });
 
 test("A customer list in CSV or Excel is read, matched and imported, and the skipped rows are explained", async ({ page }) => {

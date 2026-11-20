@@ -102,7 +102,12 @@ Errors are `ProblemDetails`; the portal shows the `detail` sentence.
 | `/app/platform/workspaces`, `/new`, `/{id}` | Workspace directory, wizard and detail |
 | `/app/platform/reports`, `/conversations`, `/settings` | Reports, Conversations, workspace access |
 
-The rail's Work group carries **Automations**. The More list carries Organisation, All workspaces, Reports and Conversations. The earlier Automation page (`/app/flows`) is no longer in the sidebar; the route still opens by URL.
+The sidebar has two sets, as in CIP:
+
+- **Workspace set** (every page outside `/app/platform`): a short primary group (Workspace, Claims, Acquisition, Automations), a **More tools** button that opens a grouped list (Work queues, Customers, Policy and risk, Knowledge and learning, Insight and governance, Organisation), then the Manage group and Recent chats. The More tools list includes Organisation overview, All workspaces, Reports and Conversations.
+- **Organisation set** (every page under `/app/platform`): Command Center, Workspaces, Automations, Reports, Conversations and Settings, with **Back to workspace** at the top. The workspace chip reads Organisation.
+
+The earlier Automation page (`/app/flows`) is no longer in the sidebar; the route still opens by URL. Specs: `web/portal/tests/workspace/sidebar.spec.ts`. Screens: `docs/screenshots/organisation-platform-2026-11-20/`.
 
 ## 7. Permissions
 

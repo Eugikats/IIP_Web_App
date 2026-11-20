@@ -47,24 +47,14 @@ const STEPS: Step[] = [
     body: "Ask for what you need in plain words, “what needs my attention today?” or “what does the policy say about flood damage?”. Answers about cover come only from your approved documents, with a link to the source.",
   },
   {
-    anchor: "/app/work-items",
-    title: "What is waiting for you",
-    body: "Everything assigned to you, in one list, claims to review, approvals to give, documents to check. This is the one place that answers “what should I do next?”.",
-  },
-  {
     anchor: "/app/claims",
     title: "Every claim",
     body: "Search, filter and open any claim in your workspace. Each one shows its full history: what happened, who did it, and what the AI prepared along the way.",
   },
   {
-    anchor: "/app/channels",
-    title: "Messages from customers",
-    body: "WhatsApp, email and web chat in one place, sorted by what each person is asking about. AI drafts replies; nothing reaches a customer until you approve it.",
-  },
-  {
-    anchor: "/app/documents",
-    title: "Everything received",
-    body: "Every document that has arrived across claims and channels. The AI reads what it can, and flags anything it is unsure about so you can check it.",
+    anchor: "more",
+    title: "Everything else is under More tools",
+    body: "Approvals to give, messages from customers, every document received, policy, fraud and underwriting are grouped here by what you are doing. The AI reads what it can and flags what it is unsure about.",
   },
   {
     anchor: "profile",

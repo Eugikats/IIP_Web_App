@@ -7,7 +7,7 @@ import {
   MessageSquare, ListChecks, FileSearch, Inbox, GraduationCap, FileText, LineChart,
   Users, Building2, Mail, BookOpen, ShieldAlert, Gavel, ScrollText,
   Search, LogOut, ShieldCheck, Plug, LifeBuoy, Settings,
-  ChevronsLeft, ChevronsRight, Compass, Home, RefreshCw, MonitorDot, Sparkles, Bot, LayoutGrid,
+  ChevronsLeft, ChevronsRight, Compass, Home, RefreshCw, MonitorDot, Sparkles, Bot, LayoutGrid, ArrowLeft, Grip,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUI } from "@/context/UIStateContext";
@@ -34,6 +34,9 @@ const PEEK_CLOSE_DELAY_MS = 180;
 // document's original plan nested these as tabs within a seven-item rail; that nesting was never
 // built, so these routes existed and worked but had no link pointing at them anywhere in the app.
 // An expandable, grouped rail reaches all of them without abandoning a compact default.
+//
+// The rail follows CIP: a short primary set, the rest under one "More tools" menu grouped by purpose, and a
+// separate sidebar for the organisation platform (see PLATFORM_ITEMS).
 const RAIL_GROUPS: { label: string; items: { to: string; label: string; icon: typeof MessageSquare }[] }[] = [
   {
     label: "Work",
@@ -41,37 +44,76 @@ const RAIL_GROUPS: { label: string; items: { to: string; label: string; icon: ty
       { to: "/app/workspace", label: "Workspace", icon: Home },
       { to: "/app/claims", label: "Claims", icon: FileSearch },
       { to: "/app/acquisition", label: "Acquisition", icon: Building2 },
-      { to: "/app/channels", label: "Inbox", icon: Inbox },
-      { to: "/app/work-items", label: "Approvals", icon: ListChecks },
       { to: "/app/platform/automations", label: "Automations", icon: Bot },
-      { to: "/academy", label: "IIP Academy", icon: GraduationCap },
     ],
   },
 ];
 
-// Everything else is one step away in the profile menu, so the rail stays short (as in CIP) and no
-// screen is unreachable.
-const MORE_DESTINATIONS: { to: string; label: string; icon: typeof MessageSquare }[] = [
-  { to: "/app/assistant", label: "Assistant", icon: MessageSquare },
-  { to: "/app/brief", label: "Brief", icon: Home },
-  { to: "/app/knowledge", label: "Knowledge library", icon: BookOpen },
-  { to: "/app/work-items", label: "My work", icon: ListChecks },
-  { to: "/app/customers", label: "Customers", icon: Users },
-  { to: "/app/communications", label: "Communications", icon: Mail },
-  { to: "/app/retention", label: "Retention", icon: RefreshCw },
-  { to: "/app/documents", label: "Documents", icon: FileText },
-  { to: "/app/policy", label: "Policy", icon: ScrollText },
-  { to: "/app/fraud", label: "Fraud", icon: ShieldAlert },
-  { to: "/app/underwriting", label: "Underwriting", icon: Gavel },
-  { to: "/app/platform", label: "Organisation", icon: Building2 },
-  { to: "/app/platform/workspaces", label: "All workspaces", icon: LayoutGrid },
-  { to: "/app/platform/reports", label: "Reports", icon: FileText },
-  { to: "/app/platform/conversations", label: "Conversations", icon: MessageSquare },
-  { to: "/app/executive", label: "Insights", icon: LineChart },
-  { to: "/app/audit", label: "Audit", icon: ShieldCheck },
+// Every other screen, one step away under the rail's "More tools" button, grouped by what the person is doing.
+const MORE_TOOLS: { title: string; items: { to: string; label: string; icon: typeof MessageSquare }[] }[] = [
+  {
+    title: "Work queues",
+    items: [
+      { to: "/app/work-items", label: "Approvals", icon: ListChecks },
+      { to: "/app/channels", label: "Inbox", icon: Inbox },
+      { to: "/app/assistant", label: "Assistant", icon: MessageSquare },
+      { to: "/app/brief", label: "Brief", icon: Home },
+    ],
+  },
+  {
+    title: "Customers",
+    items: [
+      { to: "/app/customers", label: "Customers", icon: Users },
+      { to: "/app/communications", label: "Communications", icon: Mail },
+      { to: "/app/retention", label: "Retention", icon: RefreshCw },
+      { to: "/app/documents", label: "Documents", icon: FileText },
+    ],
+  },
+  {
+    title: "Policy and risk",
+    items: [
+      { to: "/app/policy", label: "Policy", icon: ScrollText },
+      { to: "/app/fraud", label: "Fraud", icon: ShieldAlert },
+      { to: "/app/underwriting", label: "Underwriting", icon: Gavel },
+    ],
+  },
+  {
+    title: "Knowledge and learning",
+    items: [
+      { to: "/app/knowledge", label: "Knowledge library", icon: BookOpen },
+      { to: "/academy", label: "IIP Academy", icon: GraduationCap },
+    ],
+  },
+  {
+    title: "Insight and governance",
+    items: [
+      { to: "/app/executive", label: "Insights", icon: LineChart },
+      { to: "/app/audit", label: "Audit", icon: ShieldCheck },
+    ],
+  },
+  {
+    title: "Organisation",
+    items: [
+      { to: "/app/platform", label: "Organisation overview", icon: Building2 },
+      { to: "/app/platform/workspaces", label: "All workspaces", icon: LayoutGrid },
+      { to: "/app/platform/reports", label: "Reports", icon: FileText },
+      { to: "/app/platform/conversations", label: "Conversations", icon: MessageSquare },
+    ],
+  },
 ];
 
-function isActive(pathname: string, to: string) {
+// On /app/platform the sidebar changes to the organisation's own set, as CIP's does on /platform, with one way back.
+const PLATFORM_ITEMS: { to: string; label: string; icon: typeof MessageSquare; exact?: boolean }[] = [
+  { to: "/app/platform", label: "Command Center", icon: Home, exact: true },
+  { to: "/app/platform/workspaces", label: "Workspaces", icon: LayoutGrid },
+  { to: "/app/platform/automations", label: "Automations", icon: Bot },
+  { to: "/app/platform/reports", label: "Reports", icon: FileText },
+  { to: "/app/platform/conversations", label: "Conversations", icon: MessageSquare },
+  { to: "/app/platform/settings", label: "Settings", icon: Settings },
+];
+
+function isActive(pathname: string, to: string, exact = false) {
+  if (exact) return pathname === to;
   return to === "/app" ? pathname === "/app" : pathname === to || pathname.startsWith(to + "/");
 }
 
@@ -95,16 +137,16 @@ function ModalRailButton({ label, icon: Icon, expanded, onClick }: { label: stri
 }
 
 function RailButton({
-  to, label, icon: Icon, expanded, onNavigate,
+  to, label, icon: Icon, expanded, onNavigate, exact = false,
 }: {
-  to: string; label: string; icon: typeof MessageSquare; expanded: boolean; onNavigate?: () => void;
+  to: string; label: string; icon: typeof MessageSquare; expanded: boolean; onNavigate?: () => void; exact?: boolean;
 }) {
   const loc = useLocation();
-  const active = isActive(loc.pathname, to);
+  const active = isActive(loc.pathname, to, exact);
   return (
     <NavLink
       to={to}
-      end={to === "/app"}
+      end={to === "/app" || exact}
       onClick={onNavigate}
       title={expanded ? undefined : label}
       aria-label={label}
@@ -146,9 +188,15 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
 
   const can = (path: string) => (usePreviewRole ? canAccess(roleDef.key, path) : canAccessWithPermissions(permissions, path));
 
+  const inPlatform = loc.pathname === "/app/platform" || loc.pathname.startsWith("/app/platform/");
   const groups = RAIL_GROUPS
     .map((group) => ({ ...group, items: group.items.filter((item) => can(item.to)) }))
     .filter((group) => group.items.length > 0);
+  const platformItems = PLATFORM_ITEMS.filter((item) => can(item.to));
+  const moreSections = MORE_TOOLS
+    .map((section) => ({ ...section, items: section.items.filter((item) => can(item.to)) }))
+    .filter((section) => section.items.length > 0);
+  const moreActive = moreSections.some((section) => section.items.some((item) => isActive(loc.pathname, item.to)));
 
   const settingsAvailable = can("/app/settings");
   const adminAvailable = can("/app/admin");
@@ -159,7 +207,9 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
   const activeWorkspace = runtimeContext?.availableWorkspaces.find(
     (workspace) => workspace.workspaceId === runtimeContext.workspaceId,
   );
-  const workspaceName = activeWorkspace?.name ?? runtimeContext?.workspaceId ?? (loading ? "Resolving workspace" : "Workspace not configured");
+  const activeWorkspaceName = activeWorkspace?.name ?? runtimeContext?.workspaceId ?? (loading ? "Resolving workspace" : "Workspace not configured");
+  // On the organisation pages the chip names the organisation layer, not the single workspace.
+  const workspaceName = inPlatform ? "Organisation" : activeWorkspaceName;
   const displayName = runtimeContext?.displayName ?? (loading ? "Resolving user" : "User unavailable");
   const roleLabel = runtimeContext?.roleLabel ?? (loading ? "Authority resolving" : "Authority unavailable");
   const userInitials = runtimeInitials(displayName);
@@ -175,6 +225,8 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
   const [expandedLoaded, setExpandedLoaded] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreTriggerRef = useRef<HTMLButtonElement>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<SettingsSection>("profile");
   const openSettings = (section: SettingsSection) => { setSettingsSection(section); setSettingsOpen(true); };
@@ -258,7 +310,7 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
 
   // A menu, the search box or the settings dialog opened from the sidebar sits outside it, so the
   // pointer leaving must not close the sidebar underneath it. A click anywhere else closes at once.
-  const holdingOpen = profileOpen || searchOpen || settingsOpen;
+  const holdingOpen = profileOpen || moreOpen || searchOpen || settingsOpen;
   useEffect(() => {
     if (!peek) return;
     function onPointerDown(event: PointerEvent) {
@@ -399,7 +451,26 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
           ref={navRef}
           className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto", expanded ? "items-stretch gap-4" : "items-center gap-1")}
         >
-            {groups.map((group) => (
+          {inPlatform ? (
+            <>
+              <div className={cn("flex flex-col", expanded ? "gap-0.5" : "contents")}>
+                <RailButton to="/app/workspace" label="Back to workspace" icon={ArrowLeft} expanded={expanded} onNavigate={onNavigate} />
+                {!expanded && <div className="my-1 h-px w-6 bg-dls-border-subtle" aria-hidden="true" />}
+              </div>
+              <div className={cn("flex flex-col", expanded ? "gap-0.5" : "contents")}>
+                {expanded && (
+                  <div className="animate-label-in px-2.5 pb-0.5 text-[10.5px] font-bold uppercase tracking-[0.08em] text-dls-text-muted">
+                    Organisation
+                  </div>
+                )}
+                {platformItems.map((item) => (
+                  <RailButton key={item.to} to={item.to} label={item.label} icon={item.icon} exact={item.exact} expanded={expanded} onNavigate={onNavigate} />
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+          {groups.map((group) => (
             <div key={group.label} className={cn("flex flex-col", expanded ? "gap-0.5" : "contents")}>
               {expanded && (
                 <div className="animate-label-in px-2.5 pb-0.5 text-[10.5px] font-bold uppercase tracking-[0.08em] text-dls-text-muted">
@@ -409,6 +480,28 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
               {group.items.map((item) => (
                 <RailButton key={item.to} to={item.to} label={item.label} icon={item.icon} expanded={expanded} onNavigate={onNavigate} />
               ))}
+              {moreSections.length > 0 && (
+                <button
+                  ref={moreTriggerRef}
+                  type="button"
+                  data-tour="more"
+                  aria-haspopup="dialog"
+                  aria-expanded={moreOpen}
+                  aria-label="More tools"
+                  title={expanded ? undefined : "More tools"}
+                  onClick={() => setMoreOpen((value) => !value)}
+                  className={cn(
+                    "group relative flex h-10 shrink-0 items-center gap-2.5 rounded-dls-control transition-colors duration-dls-fast ease-dls dls-focus-outline",
+                    expanded ? "w-full px-2.5" : "w-10 justify-center",
+                    moreActive || moreOpen ? "bg-dls-primary-soft" : "hover:bg-dls-bg-page",
+                  )}
+                >
+                  <Grip className={cn("h-[19px] w-[19px] shrink-0", moreActive || moreOpen ? "text-dls-primary" : "text-dls-text-secondary")} strokeWidth={1.8} aria-hidden="true" />
+                  {expanded && (
+                    <span className={cn("animate-label-in truncate text-[13px] font-semibold", moreActive || moreOpen ? "text-dls-primary" : "text-dls-text-secondary")}>More tools</span>
+                  )}
+                </button>
+              )}
               {!expanded && <div className="my-1 h-px w-6 bg-dls-border-subtle" aria-hidden="true" />}
             </div>
           ))}
@@ -433,6 +526,8 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
           {/* Inside the same scrolling column as the destinations, so a long chat list or a short window scrolls
               instead of squeezing the destinations down to a sliver. */}
           <RecentChats expanded={expanded} onNavigate={onNavigate} />
+            </>
+          )}
         </nav>
         {scrollClipped.bottom && (
           <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-4 bg-gradient-to-t from-dls-surface to-transparent" aria-hidden="true" />
@@ -480,7 +575,7 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
           <div className="border-b border-dls-border-subtle px-3 py-2.5">
             <p className="truncate text-[13px] font-bold text-dls-text-primary">{displayName}</p>
             <p className="truncate text-[11px] text-dls-text-muted">Signed in as {roleLabel}</p>
-            <p className="mt-0.5 truncate text-[10.5px] text-dls-text-muted">Workspace &middot; {workspaceName}</p>
+            <p className="mt-0.5 truncate text-[10.5px] text-dls-text-muted">Workspace &middot; {activeWorkspaceName}</p>
           </div>
           <div className="py-1" role="menu" aria-label="Profile menu">
             {searchAvailable && (
@@ -511,15 +606,6 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
                 <span className={cn("h-2.5 w-2.5 rounded-full transition-transform duration-dls-fast", expandOnHover ? "translate-x-3 bg-dls-surface" : "translate-x-0 bg-dls-text-faint")} />
               </span>
             </button>
-            <div className="my-1 border-t border-dls-border-subtle" role="separator" />
-            <div className="px-3 pb-1 pt-1 text-[10.5px] font-bold uppercase tracking-[0.08em] text-dls-text-muted">More screens</div>
-            <div className="grid max-h-56 grid-cols-2 gap-x-1 overflow-y-auto px-1">
-              {MORE_DESTINATIONS.filter((item) => can(item.to)).map((item) => (
-                <Link key={item.to} to={item.to} onClick={() => setProfileOpen(false)} role="menuitem" className="flex items-center gap-2 rounded-dls-control px-2 py-1.5 text-[12.5px] text-dls-text-primary hover:bg-dls-bg-page">
-                  <item.icon className="h-3.5 w-3.5 shrink-0 text-dls-text-muted" aria-hidden="true" /> <span className="truncate">{item.label}</span>
-                </Link>
-              ))}
-            </div>
             <div className="my-1 border-t border-dls-border-subtle" role="separator" />
             {supportAvailable && (
               <Link to="/app/support" onClick={() => setProfileOpen(false)} role="menuitem" className="flex items-center gap-2.5 rounded-dls-control px-3 py-2 text-[13px] text-dls-text-primary hover:bg-dls-bg-page">
@@ -561,6 +647,33 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
             >
               <LogOut className="h-4 w-4 text-dls-text-muted" aria-hidden="true" /> {signingOut ? "Signing out…" : "Sign out"}
             </button>
+          </div>
+        </Popover>
+
+        <Popover open={moreOpen} onClose={() => setMoreOpen(false)} anchorRef={moreTriggerRef} label="More tools">
+          <div className="max-h-[calc(100vh-6rem)] overflow-y-auto">
+            {moreSections.map((section) => (
+              <div key={section.title} className="pb-1.5">
+                <PopoverGroupLabel>{section.title}</PopoverGroupLabel>
+                <div className="px-1" role="menu" aria-label={section.title}>
+                  {section.items.map((item) => (
+                    <Link
+                      key={item.to}
+                      to={item.to}
+                      onClick={() => { setMoreOpen(false); onNavigate?.(); }}
+                      role="menuitem"
+                      className={cn(
+                        "flex items-center gap-2.5 rounded-dls-control px-2.5 py-1.5 text-[13px] hover:bg-dls-bg-page",
+                        isActive(loc.pathname, item.to) ? "bg-dls-primary-soft font-semibold text-dls-primary" : "text-dls-text-primary",
+                      )}
+                    >
+                      <item.icon className="h-4 w-4 shrink-0 text-dls-text-muted" aria-hidden="true" />
+                      <span className="truncate">{item.label}</span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         </Popover>
 
