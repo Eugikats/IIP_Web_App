@@ -49,6 +49,7 @@ Confirmed project baseline:
 | Approvals | Configure workflows | Submit for approval | Approve/reject within authority | Recommend underwriting review | Review compliance escalations | No final approval | View metrics | Support config | Support troubleshoot |
 | AI Outputs | Configure policy | Request/use with review | Review team outputs | Use coverage assistant | Review AI audit | Use draft assistant | View aggregate metrics | Support prompt/tool config as authorized | Troubleshoot only |
 | Audit | Full tenant admin view | View own/assigned case audit | View team audit | View underwriting-related audit | Full compliance audit view | View customer comms audit | View reports | Support audit access | Support diagnostics |
+| Organisation platform (workspaces, automations, inbox) | View, manage (`ManagePlatform`), approve automations (`ApprovePlatformAutomations`); IT Admin: View and manage | View (`ViewPlatform`) | View, approve automations | No access | View | View | No access | No access | No access |
 | Admin Settings | Full client admin | No | Limited team config | No | Compliance settings as assigned | No | No | Full platform admin | Limited support |
 | Integrations | Configure if admin | No | View status | No | View status | View channel status | View status | Configure/support | Troubleshoot |
 

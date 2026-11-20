@@ -11,6 +11,8 @@ public static class RolePermissionMap
             [PlatformRole.ITAdmin] =
             [
                 Permission.ViewCommandCenter,
+                Permission.ViewPlatform,
+                Permission.ManagePlatform,
                 Permission.ViewAuditLog,
                 Permission.ExportEvidencePack,
                 Permission.ConfigureIntegrations,
@@ -26,6 +28,7 @@ public static class RolePermissionMap
             [PlatformRole.ClaimsOfficer] =
             [
                 Permission.ViewCommandCenter,
+                Permission.ViewPlatform,
                 Permission.CreateClaim,
                 Permission.UploadDocument,
                 Permission.ViewAssignedClaims,
@@ -41,6 +44,8 @@ public static class RolePermissionMap
             [PlatformRole.ClaimsSupervisor] =
             [
                 Permission.ViewCommandCenter,
+                Permission.ViewPlatform,
+                Permission.ApprovePlatformAutomations,
                 Permission.CreateClaim,
                 Permission.UploadDocument,
                 Permission.ViewAllClaims,
@@ -67,6 +72,7 @@ public static class RolePermissionMap
             [PlatformRole.CustomerService] =
             [
                 Permission.ViewCommandCenter,
+                Permission.ViewPlatform,
                 Permission.CreateClaim,
                 Permission.UploadDocument,
                 Permission.ViewAssignedClaims,
@@ -92,6 +98,7 @@ public static class RolePermissionMap
             [PlatformRole.Compliance] =
             [
                 Permission.ViewCommandCenter,
+                Permission.ViewPlatform,
                 Permission.ViewAllClaims,
                 Permission.ViewAuditLog,
                 Permission.ExportEvidencePack,

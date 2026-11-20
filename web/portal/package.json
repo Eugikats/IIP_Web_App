@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "node scripts/run-next-dev.mjs",
     "build": "node scripts/run-next-build.mjs",
-    "test": "pnpm check:runtime-data && pnpm check:provider-status && pnpm check:role-routes && pnpm check:action-permission-parity && pnpm check:ui-release-gates && pnpm test:trust-truth && pnpm test:authority-permissions && pnpm test:scan-math && pnpm test:import-mapping",
+    "test": "pnpm check:runtime-data && pnpm check:provider-status && pnpm check:role-routes && pnpm check:action-permission-parity && pnpm check:ui-release-gates && pnpm test:trust-truth && pnpm test:authority-permissions && pnpm test:scan-math && pnpm test:import-mapping && pnpm test:platform-format",
+    "test:platform-format": "node --experimental-strip-types --test lib/platform/format.test.ts",
     "check:runtime-data": "node scripts/check-runtime-data-hygiene.mjs",
     "check:provider-status": "node scripts/check-provider-status.mjs",
     "check:role-routes": "node scripts/check-role-route-config.mjs",

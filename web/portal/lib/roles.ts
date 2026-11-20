@@ -47,7 +47,10 @@ export type Permission =
   | "ViewBilling"
   | "ManageTenantOnboarding"
   | "ManageProducts"
-  | "ManageOrganisation";
+  | "ManageOrganisation"
+  | "ViewPlatform"
+  | "ManagePlatform"
+  | "ApprovePlatformAutomations";
 
 export const STAFF_ROLES: Role[] = [
   "Admin", "ClaimsOfficer", "ClaimsSupervisor", "CustomerService", "Broker",
@@ -62,7 +65,7 @@ export const ALL_PERMISSIONS: Permission[] = [
   "ViewChannels", "ViewCustomers", "ViewSalesLeads", "ManageSalesLeads", "ViewFraudSignals",
   "ViewUnderwriting", "ManageAgents", "ViewAgentWorkflows", "RunAgentWorkflows",
   "ManageAgentWorkflows", "ReviewAgentWorkItems", "ViewBilling", "ManageTenantOnboarding",
-  "ManageProducts", "ManageOrganisation",
+  "ManageProducts", "ManageOrganisation", "ViewPlatform", "ManagePlatform", "ApprovePlatformAutomations",
 ];
 
 // Development presentation contract only. Protected runtimes use server-resolved permissions.
@@ -73,31 +76,32 @@ export const PREVIEW_PERMISSIONS: Record<Role, Permission[]> = {
     "ViewCommandCenter", "ViewAuditLog", "ExportEvidencePack", "ConfigureIntegrations",
     "ManageTenantSettings", "ManageAgents", "ViewAgentWorkflows", "RunAgentWorkflows",
     "ManageAgentWorkflows", "ReviewAgentWorkItems", "ViewBilling", "ManageProducts",
+    "ViewPlatform", "ManagePlatform",
   ],
   ClaimsOfficer: [
     "ViewCommandCenter", "CreateClaim", "UploadDocument", "ViewAssignedClaims", "ViewAiOutputs",
     "ManageCustomerCommunications", "SendCustomerUpdate", "ViewChannels", "ViewCustomers",
-    "ViewAgentWorkflows", "RunAgentWorkflows", "ReviewAgentWorkItems",
+    "ViewAgentWorkflows", "RunAgentWorkflows", "ReviewAgentWorkItems", "ViewPlatform",
   ],
   ClaimsSupervisor: [
     "ViewCommandCenter", "CreateClaim", "UploadDocument", "ViewAllClaims", "ViewAssignedClaims",
     "ApproveSettlementWorkflowStep", "ViewAuditLog", "ExportEvidencePack", "ViewAiOutputs",
     "OverrideAiRecommendation", "ManageCustomerCommunications", "SendCustomerUpdate", "ViewChannels",
     "ViewCustomers", "ViewFraudSignals", "ViewUnderwriting", "ViewAgentWorkflows",
-    "RunAgentWorkflows", "ReviewAgentWorkItems", "ManageProducts",
+    "RunAgentWorkflows", "ReviewAgentWorkItems", "ManageProducts", "ViewPlatform", "ApprovePlatformAutomations",
   ],
   CustomerService: [
     "ViewCommandCenter", "CreateClaim", "UploadDocument", "ViewAssignedClaims", "ViewAiOutputs",
     "ManageCustomerCommunications", "SendCustomerUpdate", "ViewChannels", "ViewCustomers",
     "ViewSalesLeads", "ManageSalesLeads", "ViewAgentWorkflows", "RunAgentWorkflows",
-    "ReviewAgentWorkItems",
+    "ReviewAgentWorkItems", "ViewPlatform",
   ],
   Broker: ["CreateClaim", "UploadDocument", "ViewAiOutputs"],
   Compliance: [
     "ViewCommandCenter", "ViewAllClaims", "ViewAuditLog", "ExportEvidencePack", "ManageKnowledgeBase",
     "ViewAiOutputs", "ApproveSettlementWorkflowStep", "OverrideAiRecommendation", "ViewCustomers",
     "ViewFraudSignals", "ViewUnderwriting", "ViewAgentWorkflows", "RunAgentWorkflows",
-    "ReviewAgentWorkItems",
+    "ReviewAgentWorkItems", "ViewPlatform",
   ],
   KnowledgeManager: ["ManageKnowledgeBase", "ViewAiOutputs"],
   PublisherSupport: ["ViewCommandCenter", "ViewAuditLog", "ManageTenantOnboarding"],
@@ -132,6 +136,12 @@ export const ROUTE_ACCESS: RouteAccessRule[] = [
   { path: "/app/executive", requiredAny: ["ViewCommandCenter"] },
   { path: "/app/work-items", requiredAny: ["ViewAssignedClaims", "ViewAllClaims", "ReviewAgentWorkItems", "ApproveSettlementWorkflowStep", "ManageCustomerCommunications"] },
   { path: "/app/workflows", requiredAny: ["ReviewAgentWorkItems", "ApproveSettlementWorkflowStep"] },
+  { path: "/app/platform/automations", requiredAny: ["ViewPlatform"] },
+  { path: "/app/platform/workspaces", requiredAny: ["ViewPlatform"] },
+  { path: "/app/platform/reports", requiredAny: ["ViewPlatform"] },
+  { path: "/app/platform/conversations", requiredAny: ["ViewPlatform"] },
+  { path: "/app/platform/settings", requiredAny: ["ViewPlatform"] },
+  { path: "/app/platform", requiredAny: ["ViewPlatform"] },
   { path: "/app/flows", requiredAny: ["ViewAgentWorkflows"] },
   { path: "/app/runs", requiredAny: ["ViewAgentWorkflows"] },
   { path: "/app/integrations", requiredAny: ["ConfigureIntegrations", "ManageTenantSettings"] },

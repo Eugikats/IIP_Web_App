@@ -4,10 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, Link } from "@/components/iip/NextRouterCompat";
 import iipLogo from "@/assets/iip-logo";
 import {
-  MessageSquare, ListChecks, FileSearch, Inbox, GraduationCap, FileText, GitBranch, LineChart,
+  MessageSquare, ListChecks, FileSearch, Inbox, GraduationCap, FileText, LineChart,
   Users, Building2, Mail, BookOpen, ShieldAlert, Gavel, ScrollText,
   Search, LogOut, ShieldCheck, Plug, LifeBuoy, Settings,
-  ChevronsLeft, ChevronsRight, Compass, Home, RefreshCw, MonitorDot, Sparkles,
+  ChevronsLeft, ChevronsRight, Compass, Home, RefreshCw, MonitorDot, Sparkles, Bot, LayoutGrid,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUI } from "@/context/UIStateContext";
@@ -43,6 +43,7 @@ const RAIL_GROUPS: { label: string; items: { to: string; label: string; icon: ty
       { to: "/app/acquisition", label: "Acquisition", icon: Building2 },
       { to: "/app/channels", label: "Inbox", icon: Inbox },
       { to: "/app/work-items", label: "Approvals", icon: ListChecks },
+      { to: "/app/platform/automations", label: "Automations", icon: Bot },
       { to: "/academy", label: "IIP Academy", icon: GraduationCap },
     ],
   },
@@ -62,7 +63,10 @@ const MORE_DESTINATIONS: { to: string; label: string; icon: typeof MessageSquare
   { to: "/app/policy", label: "Policy", icon: ScrollText },
   { to: "/app/fraud", label: "Fraud", icon: ShieldAlert },
   { to: "/app/underwriting", label: "Underwriting", icon: Gavel },
-  { to: "/app/flows", label: "Automation", icon: GitBranch },
+  { to: "/app/platform", label: "Organisation", icon: Building2 },
+  { to: "/app/platform/workspaces", label: "All workspaces", icon: LayoutGrid },
+  { to: "/app/platform/reports", label: "Reports", icon: FileText },
+  { to: "/app/platform/conversations", label: "Conversations", icon: MessageSquare },
   { to: "/app/executive", label: "Insights", icon: LineChart },
   { to: "/app/audit", label: "Audit", icon: ShieldCheck },
 ];

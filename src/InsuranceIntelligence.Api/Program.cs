@@ -741,6 +741,20 @@ builder.Services.AddScoped<InsuranceIntelligence.Domain.Integrations.IConnectorF
 builder.Services.AddScoped<InsuranceIntelligence.Application.Connectors.IConnectorSyncService, InsuranceIntelligence.Application.Connectors.ConnectorSyncService>();
 builder.Services.AddHostedService<InsuranceIntelligence.Api.Connectors.ConnectorSyncWorker>();
 builder.Services.AddHostedService<InsuranceIntelligence.Api.Rules.RuleRunWorker>();
+// The organisation platform: department workspaces, governed automations, the Intelligence Inbox and intents.
+builder.Services.AddScoped<InsuranceIntelligence.Application.Platform.PlatformAccess>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Platform.PlatformAudit>();
+builder.Services.AddScoped<InsuranceIntelligence.Domain.Platform.IOrgWorkspaceStore, InsuranceIntelligence.Infrastructure.Persistence.EfOrgWorkspaceStore>();
+builder.Services.AddScoped<InsuranceIntelligence.Domain.Platform.IPlatformAutomationStore, InsuranceIntelligence.Infrastructure.Persistence.EfPlatformAutomationStore>();
+builder.Services.AddScoped<InsuranceIntelligence.Domain.Platform.IPlatformRunStore, InsuranceIntelligence.Infrastructure.Persistence.EfPlatformRunStore>();
+builder.Services.AddScoped<InsuranceIntelligence.Domain.Platform.IPlatformInboxStore, InsuranceIntelligence.Infrastructure.Persistence.EfPlatformInboxStore>();
+builder.Services.AddScoped<InsuranceIntelligence.Domain.Platform.IPlatformIntentStore, InsuranceIntelligence.Infrastructure.Persistence.EfPlatformIntentStore>();
+builder.Services.AddScoped<InsuranceIntelligence.Domain.Platform.IPlatformSettingsStore, InsuranceIntelligence.Infrastructure.Persistence.EfPlatformSettingsStore>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Platform.IPlatformWorkspaceService, InsuranceIntelligence.Application.Platform.PlatformWorkspaceService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Platform.IPlatformInboxService, InsuranceIntelligence.Application.Platform.PlatformInboxService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Platform.IPlatformAutomationService, InsuranceIntelligence.Application.Platform.PlatformAutomationService>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Platform.IPlatformOverviewService, InsuranceIntelligence.Application.Platform.PlatformOverviewService>();
+builder.Services.AddHostedService<InsuranceIntelligence.Api.Platform.PlatformAutomationWorker>();
 // JSON lists are large and the people reading them are far from the data centre; compressing them costs a little CPU
 // and saves far more waiting. Brotli at its fastest level is the cheap setting on a small plan.
 builder.Services.AddResponseCompression(options =>
@@ -2069,6 +2083,7 @@ app.MapPost("/api/v1/rules/{ruleId}/resume", InsuranceIntelligence.Api.Rules.Rul
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
 app.MapPut("/api/v1/rules-approval", InsuranceIntelligence.Api.Rules.RuleEndpoints.SaveApprovalSettings)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ConfigureIntegrations));
+InsuranceIntelligence.Api.Platform.PlatformEndpoints.Map(app);
 app.MapPost("/api/v1/rules-run", InsuranceIntelligence.Api.Rules.RuleEndpoints.Run)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ManageSalesLeads));
 app.MapGet("/api/v1/rule-outcomes", InsuranceIntelligence.Api.Rules.RuleEndpoints.Outcomes)

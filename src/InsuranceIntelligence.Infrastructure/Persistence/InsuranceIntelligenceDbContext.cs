@@ -4,6 +4,12 @@ namespace InsuranceIntelligence.Infrastructure.Persistence;
 
 public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceIntelligenceDbContext> options) : DbContext(options)
 {
+    public DbSet<PersistedOrgWorkspace> OrgWorkspaces => Set<PersistedOrgWorkspace>();
+    public DbSet<PersistedPlatformAutomation> PlatformAutomations => Set<PersistedPlatformAutomation>();
+    public DbSet<PersistedPlatformRun> PlatformAutomationRuns => Set<PersistedPlatformRun>();
+    public DbSet<PersistedPlatformInboxItem> PlatformInboxItems => Set<PersistedPlatformInboxItem>();
+    public DbSet<PersistedPlatformIntent> PlatformIntents => Set<PersistedPlatformIntent>();
+    public DbSet<PersistedPlatformSettings> PlatformSettings => Set<PersistedPlatformSettings>();
     public DbSet<PersistedAggregate> Cases => Set<PersistedAggregate>();
     public DbSet<PersistedCaseDocument> CaseDocuments => Set<PersistedCaseDocument>();
     public DbSet<PersistedKnowledgeDocument> KnowledgeDocuments => Set<PersistedKnowledgeDocument>();
@@ -206,6 +212,7 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
         modelBuilder.Entity<PersistedWordingDraft>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.ProductId });
         ConfigurePermissionModel(modelBuilder);
         ConfigureOrganisationModel(modelBuilder);
+        ConfigurePlatformModel(modelBuilder);
 
         ConfigureScopedJson(modelBuilder.Entity<PersistedCustomer>(), "Customers", "CustomerId");
         modelBuilder.Entity<PersistedCustomer>().Property(entity => entity.PhoneKey).HasMaxLength(7);
@@ -522,6 +529,31 @@ public sealed class InsuranceIntelligenceDbContext(DbContextOptions<InsuranceInt
             entity.Property(item => item.PermissionCode).HasMaxLength(160).IsRequired();
             entity.Property(item => item.DisplayName).HasMaxLength(240).IsRequired();
         });
+    }
+
+    private static void ConfigurePlatformModel(ModelBuilder modelBuilder)
+    {
+        // The organisation platform: department workspaces, governed automations, the Intelligence Inbox and intents.
+        ConfigureScopedJson(modelBuilder.Entity<PersistedOrgWorkspace>(), "OrgWorkspaces", "OrgWorkspaceId");
+        modelBuilder.Entity<PersistedOrgWorkspace>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId })
+            .IsUnique().HasFilter("[IsPrimary] = 1").HasDatabaseName("UX_OrgWorkspaces_Primary");
+
+        ConfigureScopedJson(modelBuilder.Entity<PersistedPlatformAutomation>(), "PlatformAutomations", "AutomationId");
+        modelBuilder.Entity<PersistedPlatformAutomation>().Property(entity => entity.Status).HasMaxLength(32).IsRequired();
+        modelBuilder.Entity<PersistedPlatformAutomation>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.OrgWorkspaceId });
+        modelBuilder.Entity<PersistedPlatformAutomation>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.Status });
+
+        ConfigureScopedJson(modelBuilder.Entity<PersistedPlatformRun>(), "PlatformAutomationRuns", "RunId");
+        modelBuilder.Entity<PersistedPlatformRun>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.AutomationId, entity.StartedAt });
+
+        ConfigureScopedJson(modelBuilder.Entity<PersistedPlatformInboxItem>(), "PlatformInboxItems", "InboxItemId");
+        modelBuilder.Entity<PersistedPlatformInboxItem>().Property(entity => entity.DedupeKey).HasMaxLength(256).IsRequired();
+        modelBuilder.Entity<PersistedPlatformInboxItem>().Property(entity => entity.Status).HasMaxLength(32).IsRequired();
+        modelBuilder.Entity<PersistedPlatformInboxItem>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.DedupeKey });
+        modelBuilder.Entity<PersistedPlatformInboxItem>().HasIndex(entity => new { entity.TenantId, entity.WorkspaceId, entity.Status });
+
+        ConfigureScopedJson(modelBuilder.Entity<PersistedPlatformIntent>(), "PlatformIntents", "IntentId");
+        ConfigureScopedJson(modelBuilder.Entity<PersistedPlatformSettings>(), "PlatformSettings", "SettingsId");
     }
 
     private static void ConfigureScopedJson<TEntity>(

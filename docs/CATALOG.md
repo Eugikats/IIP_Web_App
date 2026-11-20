@@ -2,7 +2,7 @@
 
 > Generated from Git-tracked documentation by `scripts/docs/Update-IipDocsCatalog.ps1`. Do not hand-edit.
 
-Total: 476 files.
+Total: 478 files.
 
 ## [docs-root] (9)
 
@@ -296,7 +296,7 @@ Total: 476 files.
 - [iip_product_feedback_review_cadence.md](08-continuous-improvement/iip_product_feedback_review_cadence.md)
 - [iip_release_improvement_tracker.md](08-continuous-improvement/iip_release_improvement_tracker.md)
 
-## 08-program-plan (36)
+## 08-program-plan (38)
 
 - [CODEX-HANDOVER-PROMPT.md](08-program-plan/CODEX-HANDOVER-PROMPT.md)
 - [BACKLOG.md](08-program-plan/consolidation-data/BACKLOG.md)
@@ -311,6 +311,7 @@ Total: 476 files.
 - [iip_phase11_commercial_module_activation_gate.md](08-program-plan/iip_phase11_commercial_module_activation_gate.md)
 - [IIP_PRODUCTION_BUILD_CONTRACT.md](08-program-plan/IIP_PRODUCTION_BUILD_CONTRACT.md)
 - [IIP_SYSTEM_ANALYSIS_AND_PRODUCTION_PLAN.md](08-program-plan/IIP_SYSTEM_ANALYSIS_AND_PRODUCTION_PLAN.md)
+- [IIP_TARGET_JOURNEYS_GAP_MATRIX.md](08-program-plan/IIP_TARGET_JOURNEYS_GAP_MATRIX.md)
 - [IIP-AGENTIC-INTENT-SUGGESTIONS-AND-AUTOMATION-RESEARCH-2026-11-07.md](08-program-plan/IIP-AGENTIC-INTENT-SUGGESTIONS-AND-AUTOMATION-RESEARCH-2026-11-07.md)
 - [IIP-BANCASSURANCE-QR-TO-WHATSAPP-CAMPAIGN-BUILD-BRIEF.md](08-program-plan/IIP-BANCASSURANCE-QR-TO-WHATSAPP-CAMPAIGN-BUILD-BRIEF.md)
 - [IIP-BEVAYA-PARITY-RELEASE-BLUEPRINT.md](08-program-plan/IIP-BEVAYA-PARITY-RELEASE-BLUEPRINT.md)
@@ -321,6 +322,7 @@ Total: 476 files.
 - [IIP-OMNICHANNEL-CHANNEL-EXPANSION-PLAN.md](08-program-plan/IIP-OMNICHANNEL-CHANNEL-EXPANSION-PLAN.md)
 - [IIP-PRODUCT-SURFACE-REVIEW-2026-07-16.md](08-program-plan/IIP-PRODUCT-SURFACE-REVIEW-2026-07-16.md)
 - [IIP-SOCIAL-CHANNELS-BUILD-PLAN.md](08-program-plan/IIP-SOCIAL-CHANNELS-BUILD-PLAN.md)
+- [IIP-USABILITY-AND-AGENT-GAP-REVIEW-2026-11-07.md](08-program-plan/IIP-USABILITY-AND-AGENT-GAP-REVIEW-2026-11-07.md)
 - [OTIC_AGENTIC_COURSE_PLATFORM_OVERVIEW.md](08-program-plan/OTIC_AGENTIC_COURSE_PLATFORM_OVERVIEW.md)
 - [OTIC_AGENTIC_COURSE_SALES_BUILD_PROMPT.md](08-program-plan/OTIC_AGENTIC_COURSE_SALES_BUILD_PROMPT.md)
 - [MAP.md](08-program-plan/wayfinder/release-foundation-blockers/MAP.md)

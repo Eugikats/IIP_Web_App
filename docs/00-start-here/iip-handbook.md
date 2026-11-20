@@ -44,6 +44,8 @@ Sections 3, 4, 8 to 14 are shared by both editions. The module-by-module split l
 
 **Knowledge and agents** (full architecture in sections 4.4 to 4.6). Policy questions are answered only from approved, indexed sources, with a citation that opens the source. Agents run through a registry with a kill switch; each run is recorded as an `AgentRun` with audit events. No generic SQL tool is ever exposed to an agent, and no agent tool may approve, reject, release payment, bind, accuse of fraud or send a final regulated communication.
 
+**Organisation platform.** Above the Insurance Intelligence workspace sits the Otic shared layer: department workspaces built from templates, an Automations module (an automation is tested, submitted, approved by a supervisor, activated and then run on a UTC schedule, and only reads IIP data and raises items), the Intelligence Inbox, intents, and organisation-wide reports and conversations, at `/app/platform` and `/api/v1/org-platform`. It adds the permissions `ViewPlatform`, `ManagePlatform` and `ApprovePlatformAutomations`. IIP claim and settlement approvals stay in the existing human-decision flow. Owning document: `docs/02-development-engineering/iip_organisation_platform.md`.
+
 **Governance.** Server-side permissions, an audit trail with correlation ids, retention periods per record kind, legal hold, and erasure of a person (the claim record is kept for audit; the person's name, phone, email, text, documents, chats, consents and portal access are removed). Token use is metered per call with a cost estimate.
 
 **Honest providers.** A provider that is not configured shows `Not configured`. Protected runtimes (Staging, Production, ManagedApplicationReviewer, and deployed Demo) never use mocks, seeded business data or fallback-to-mock. Mocks exist only for local development and automated tests.
@@ -254,6 +256,7 @@ Never commit a secret. Outside local development, secrets come from Key Vault or
 | `INSURANCEINTELLIGENCE_LOCAL_AUTH_SIGNING_KEY` | SaaS: signs platform tokens (HS256, 8 hours); a deployment secret |
 | `INSURANCEINTELLIGENCE_PLAN_CATALOGUE` | SaaS: replaces the placeholder plans and allowances without a release |
 | `INSURANCEINTELLIGENCE_AI_PRICING` | Price table for the token cost estimate |
+| `Platform:AutomationsEnabled`, `Platform:AutomationPollSeconds` | Organisation platform scheduler: on by default; poll interval 30 to 900 seconds, default 120 |
 | `Azure__KeyVaultUri`, `Azure__TenantId` | Key Vault and Entra tenant |
 | `NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_AUTH_MODE`, `NEXT_PUBLIC_TENANT_ID`, `NEXT_PUBLIC_WORKSPACE_ID`, `NEXT_PUBLIC_LOCAL_USER_ID` | Portal build-time values; the first two plus the Entra ones are baked into the build |
 | `NEXT_PUBLIC_ENTRA_TENANT_ID`, `..._CLIENT_ID`, `..._API_SCOPE`, `..._REDIRECT_URI` | Portal Entra sign-in |
@@ -407,6 +410,7 @@ Every release records, per artifact (API, portal, worker): the commit, the artif
 | Claims-core build | 37 items, merged into `main` (the build notes are in `docs/build-loop/`) |
 | Social channels | merged into `main` |
 | SaaS Academy | the live Academy at `/academy`, with media, pricing and payments, is in `main`; the duplicate learner pages claims-core built at `/learn` were deliberately not ported (decision D-032) |
+| Organisation platform | source-complete and locally verified on 2026-11-20 (migration `20261120100025_AddOrganisationPlatform`, not yet applied to dev): .NET suite, portal gates and a browser run against the offline API; the scheduler has not run on a deployed instance |
 | Consolidation | `main` (the SaaS edition) is complete, deployed to dev and verified; the `managed-app` branch is not cut yet (phase D of the plan) |
 
 **Not proven against real services** (each needs its first run with real access): Azure OpenAI quality, grounding, refusal behaviour and cost accuracy; Document Intelligence accuracy on Ugandan police abstracts, IDs, repair estimates and phone photos; WhatsApp template approval, the 24-hour window, signatures and media download; email sending with attachments and IMAP reading; all three payment providers; Service Bus; customer-managed-key deployment; backups, soft delete and replay of erasures after a restore; Entra sign-in alongside platform sign-in.
@@ -446,6 +450,7 @@ Authority order: explicit instructions from the owner or maintainer, then `AGENT
 | Deployment and Azure reality | `docs/05-deployment-release-enablement/AZURE_DEPLOYMENT_AND_ENVIRONMENTS.md` |
 | Managed Application | `iip_managed_application_architecture_guide.md`, `iip_azure_managed_application_packaging_guide.md`, `infra/ADR-0001-hosting-model.md` |
 | SaaS tenancy and billing | `iip_saas_tenant_provisioning_guide.md`, `infra/ADR-0003-billing-entitlements-metering.md`, `docs/iip-academy/` |
+| Organisation platform (workspaces, automations, inbox, intents) | `docs/02-development-engineering/iip_organisation_platform.md`, `docs/06-decisions/ADR-2026-11-20-organisation-platform-layer.md` |
 | Gap register and honesty rules | `docs/01-strategy-requirements-roadmap/IIP_HACKATHON_READINESS_BLUEPRINT.md` |
 | Claims-core build notes | `docs/build-loop/` (SUMMARY, DECISIONS, HOW_TO_TEST with a step-by-step walkthrough per item) |
 | Everything else | `docs/README.md` and the generated `docs/CATALOG.md` |

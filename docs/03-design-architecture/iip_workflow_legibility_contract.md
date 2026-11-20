@@ -277,6 +277,24 @@ Rendered as a plain text label in `--color-text-secondary`, **not** as a coloure
 
 Rendered as the button verb on the claim: `RequestMissingDocuments` → `Request missing documents` · `MarkReadyForReview` → `Mark ready for review` · `SupervisorReview` → `Send to supervisor` · `HumanReview` → `Review now` · `FollowUpCustomer` → `Follow up with customer`.
 
+
+### 10.8 Organisation platform: automation, workspace and intent health
+
+`PlatformAutomationStatuses` (display helper `web/portal/lib/platform/format.ts`):
+
+| State | Label | Dot |
+|---|---|---|
+| `draft` | Draft | neutral |
+| `tested` | Tested | info |
+| `awaiting_approval` | Awaiting approval | warning |
+| `approved` | Approved | info |
+| `active` | Active | success |
+| `paused` | Paused | neutral |
+| `failed` | Failed | danger |
+| `retired` | Retired | neutral |
+
+Workspace: `live` Live (success), `awaiting_data` Awaiting data (warning), `draft` Draft (neutral), `archived` Archived (neutral). Intent health: `on_track` On track (success), `at_risk` At risk (warning), `off_track` Off track (danger). Inbox severity: critical and high danger, medium warning, otherwise info.
+
 ---
 
 ## 11. Cross-surface consistency
