@@ -2,7 +2,7 @@
 
 > Generated from Git-tracked documentation by `scripts/docs/Update-IipDocsCatalog.ps1`. Do not hand-edit.
 
-Total: 478 files.
+Total: 480 files.
 
 ## [docs-root] (9)
 
@@ -68,7 +68,7 @@ Total: 478 files.
 - [IIP_WHATSAPP_VOICE_DESIGN.md](01-strategy-requirements-roadmap/IIP_WHATSAPP_VOICE_DESIGN.md)
 - [SECTION_16_REHEARSAL_SCRIPT.md](01-strategy-requirements-roadmap/SECTION_16_REHEARSAL_SCRIPT.md)
 
-## 02-development-engineering (42)
+## 02-development-engineering (43)
 
 - [iip_api_specification.md](02-development-engineering/iip_api_specification.md)
 - [iip_approval_decision_service_implementation_output.md](02-development-engineering/iip_approval_decision_service_implementation_output.md)
@@ -102,6 +102,7 @@ Total: 478 files.
 - [iip_multi_tenant_identity_onboarding_app_roles_scim_provisioning.md](02-development-engineering/iip_multi_tenant_identity_onboarding_app_roles_scim_provisioning.md)
 - [iip_notification_send_execution_service.md](02-development-engineering/iip_notification_send_execution_service.md)
 - [iip_offline_mode.md](02-development-engineering/iip_offline_mode.md)
+- [iip_organisation_platform.md](02-development-engineering/iip_organisation_platform.md)
 - [iip_release_1_api_data_contract_map.md](02-development-engineering/iip_release_1_api_data_contract_map.md)
 - [iip_reporting_service.md](02-development-engineering/iip_reporting_service.md)
 - [iip_sales_leads_query_service_implementation_output.md](02-development-engineering/iip_sales_leads_query_service_implementation_output.md)
@@ -246,10 +247,11 @@ Total: 478 files.
 - [iip_pilot_weekly_status_report_template.md](06-client-pilot/iip_pilot_weekly_status_report_template.md)
 - [iip_uat_plan.md](06-client-pilot/iip_uat_plan.md)
 
-## 06-decisions (7)
+## 06-decisions (8)
 
 - [ADR-2026-07-04-lovable-visual-parity-mode.md](06-decisions/ADR-2026-07-04-lovable-visual-parity-mode.md)
 - [ADR-2026-08-10-release-1-assessor-handoff-channel-scope.md](06-decisions/ADR-2026-08-10-release-1-assessor-handoff-channel-scope.md)
+- [ADR-2026-11-20-organisation-platform-layer.md](06-decisions/ADR-2026-11-20-organisation-platform-layer.md)
 - [gate-0-exit-report.md](06-decisions/gate-0-exit-report.md)
 - [gate-1-handoff.md](06-decisions/gate-1-handoff.md)
 - [lovable-parity-migration-audit.md](06-decisions/lovable-parity-migration-audit.md)
