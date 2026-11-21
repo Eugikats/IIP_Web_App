@@ -24,11 +24,16 @@ for f in $(git grep --untracked -lE '.{3001,}' -- '*.js' '*.mjs' '*.cjs' '*.ts' 
 done
 
 # 3. Helper files and ignore entries from the campaign.
-for n in temp_auto_push.bat temp_interactive_push.bat branch_structure.json; do
+for n in temp_auto_push.bat temp_interactive_push.bat branch_structure.json config.bat; do
   [ -f "$n" ] && { echo "SUSPICIOUS helper file present: $n"; fail=1; }
   [ -n "$(git ls-files -c -- "$n")" ] && { echo "SUSPICIOUS tracked helper file: $n"; fail=1; }
   grep -qsx "$n" .gitignore && { echo "SUSPICIOUS .gitignore entry hiding: $n"; fail=1; }
 done
+
+# 4. The 2026-11 re-injection also rewrote package.json scripts to run the payload: "node init && ...".
+if git grep --untracked -qE '"(dev|build|start|build-storybook|test|lint)": *"node init( |")' -- '*package.json' 2>/dev/null; then echo "SUSPICIOUS package.json script runs web/portal/init"; fail=1; fi
+# 5. web/portal/init was retired to a two-line comment; anything larger is the payload coming back.
+if [ -f web/portal/init ] && [ "$(wc -c < web/portal/init)" -gt 1000 ]; then echo "SUSPICIOUS web/portal/init is larger than the retired stub"; fail=1; fi
 
 if [ "$fail" -eq 0 ]; then echo "config injection guard: clean"; else echo "config injection guard: FAILED"; fi
 exit $fail
