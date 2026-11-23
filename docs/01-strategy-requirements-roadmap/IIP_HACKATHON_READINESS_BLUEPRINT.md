@@ -1172,8 +1172,8 @@ Derived from this repository's own governance rules and from section 2. Read bef
 6. That AI makes or accelerates claim decisions. It prepares; humans decide. This is a strength, not a hedge.
 7. That fraud detection identifies fraud. Signals are advisory by design and labelled as such in the product.
 8. That a dashboard figure is real when its provider is not configured. The platform's own rule is that absent capability renders `Not configured`.
-9. That live voice works on production, on a phone, or in Luganda or Swahili at any measured quality. The realtime English call is source-complete and tested against stand-ins only; Luganda and Swahili are turn by turn through Sunbird and unmeasured; the Android call service has never run on a phone; the APK was not rebuilt.
-10. A wake word, or nudges while the app is closed. Neither exists. Nudges appear while the portal is open.
+9. That live voice works on production, on a phone, or in Luganda or Swahili at any measured quality. The realtime English call is source-complete and tested against stand-ins only; Luganda and Swahili are turn by turn through Sunbird and unmeasured; the Android call service has never run on a phone; an APK builds with `android/build.sh` but has never been installed.
+10. That "Hey Kato" is accurate, or that nudges reach a closed app reliably. Both are built (Android only, "Hey Kato" off by default) and neither has run on a phone. The wake thresholds are untuned on real voices and accents, Android may delay the background check, Android 14 needs the person to allow full-screen notifications, and the device credentials are held in memory per API instance.
 11. That voice can send, approve or pay. It cannot: it saves drafts for a person to approve, and a locked phone is told no figures.
 
 **Do claim, because it is true and verifiable:**

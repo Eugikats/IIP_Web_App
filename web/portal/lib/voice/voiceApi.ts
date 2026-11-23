@@ -79,6 +79,32 @@ export async function fetchNudge(role: string, locked: boolean): Promise<Nudge |
   }
 }
 
+/** A narrow credential for the phone to check for nudges and the wake phrase while the app is closed. Null when it could not be issued. */
+export async function registerDevice(role: string): Promise<string | null> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/v1/voice/device`, { method: "POST", headers: scopedHeaders(role, "") });
+    if (!response.ok) return null;
+    const body = (await response.json()) as { token?: string };
+    return typeof body.token === "string" && body.token ? body.token : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Ends a phone's credential at the server. Best effort: a credential that is not revoked still expires on its own. */
+export async function revokeDevice(role: string, token: string): Promise<void> {
+  try {
+    await fetch(`${apiBaseUrl}/api/v1/voice/device/revoke`, {
+      method: "POST",
+      headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+      signal: AbortSignal.timeout(3000),
+    });
+  } catch {
+    /* offline or slow: sign-out must not wait for it */
+  }
+}
+
 export function createVoiceApi(role: string): VoiceApi {
   const send = async (path: string, body?: unknown): Promise<Response> => {
     const response = await fetch(`${apiBaseUrl}/api/v1/voice/${path}`, {

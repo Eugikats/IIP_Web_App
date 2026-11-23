@@ -27,6 +27,17 @@ public sealed class VoiceLiveOptions
     /// <summary>A call with nothing said for this long is closed.</summary>
     public int IdleSeconds { get; init; } = 180;
 
+    /// <summary>
+    /// The same resource's speech address, used for the short "Hey Kato" check. When it is not set it is taken from
+    /// <see cref="Endpoint"/> (services.ai.azure.com becomes cognitiveservices.azure.com).
+    /// </summary>
+    public string? SpeechEndpoint { get; init; }
+
+    public string? ResolvedSpeechEndpoint =>
+        !string.IsNullOrWhiteSpace(SpeechEndpoint)
+            ? SpeechEndpoint!.TrimEnd('/')
+            : string.IsNullOrWhiteSpace(Endpoint) ? null : Endpoint!.TrimEnd('/').Replace(".services.ai.azure.com", ".cognitiveservices.azure.com", StringComparison.OrdinalIgnoreCase);
+
     public bool IsConfigured => !string.IsNullOrWhiteSpace(Endpoint);
 }
 

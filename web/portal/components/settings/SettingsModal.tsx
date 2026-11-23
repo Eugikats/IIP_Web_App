@@ -21,6 +21,7 @@ import { disconnectFileProvider, FileConnectionError, getFileConnectionStatus, s
 import CreditMeter from "@/components/billing/CreditMeter";
 import SecuritySection from "@/components/security/SecuritySection";
 import TestSend from "@/components/settings/TestSend";
+import PhoneVoiceSettings from "@/components/iip/PhoneVoiceSettings";
 import { IntegrationBrandIcon } from "@/components/brand/ProviderIcons";
 import ProfileSettings from "@/lovable-pages/Settings";
 import AgentsPanel from "@/lovable-pages/admin/Agents";
@@ -222,7 +223,7 @@ export function SettingsModal({
                   {section === "agents" ? <AgentsSection /> : null}
                   {section === "dataHub" ? <DataHubSection /> : null}
                   {section === "security" ? <SecuritySection /> : null}
-                  {section === "profile" ? <Embedded><ProfileSettings /></Embedded> : null}
+                  {section === "profile" ? <><Embedded><ProfileSettings /></Embedded><PhoneVoiceSettings /></> : null}
                   {section === "notifications" ? <Embedded><NotificationRoutingSettings /></Embedded> : null}
                   {section === "usage" ? <Embedded><CreditMeter /></Embedded> : null}
                   {section === "billing" ? <Embedded><BillingPanel /></Embedded> : null}

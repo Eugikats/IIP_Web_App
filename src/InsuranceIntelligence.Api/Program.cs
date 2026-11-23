@@ -589,6 +589,11 @@ builder.Services.AddSingleton(builder.Configuration.GetSection("Voice:Live").Get
 builder.Services.AddSingleton<InsuranceIntelligence.Application.Voice.IVoiceTimings, InsuranceIntelligence.Application.Voice.VoiceTimings>();
 builder.Services.AddSingleton(builder.Configuration.GetSection("Voice:Nudges").Get<InsuranceIntelligence.Application.Voice.VoiceNudgeOptions>() ?? new InsuranceIntelligence.Application.Voice.VoiceNudgeOptions());
 builder.Services.AddSingleton<InsuranceIntelligence.Application.Voice.IVoiceNudgeLedger, InsuranceIntelligence.Application.Voice.VoiceNudgeLedger>();
+builder.Services.AddSingleton<InsuranceIntelligence.Application.Voice.IDeviceChecks, InsuranceIntelligence.Application.Voice.DeviceChecks>();
+builder.Services.AddSingleton<InsuranceIntelligence.Application.Voice.IWakeChecker>(sp => new InsuranceIntelligence.Api.Voice.AzureSpeechWakeChecker(
+    sp.GetRequiredService<InsuranceIntelligence.Application.Voice.VoiceLiveOptions>(),
+    InsuranceIntelligence.Api.Azure.AzureProviderSupport.Credential(),
+    new HttpClient(new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(5), PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2) })));
 builder.Services.AddScoped<InsuranceIntelligence.Application.Voice.IVoiceNudges, InsuranceIntelligence.Application.Voice.VoiceNudges>();
 builder.Services.AddSingleton<InsuranceIntelligence.Application.Voice.IVoiceLiveTransportFactory, InsuranceIntelligence.Api.Voice.VoiceLiveWebSocketTransportFactory>();
 builder.Services.AddSingleton<InsuranceIntelligence.Application.Voice.IVoiceScopeFactory, InsuranceIntelligence.Api.Voice.VoiceScopeFactory>();
@@ -1383,6 +1388,13 @@ app.MapGet("/api/v1/voice/metrics", InsuranceIntelligence.Api.Voice.VoiceEndpoin
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAuditLog));
 app.MapGet("/api/v1/voice/nudge", InsuranceIntelligence.Api.Voice.VoiceEndpoints.NextNudge)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCommandCenter));
+app.MapPost("/api/v1/voice/device", InsuranceIntelligence.Api.Voice.VoiceEndpoints.RegisterDevice)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCommandCenter));
+app.MapPost("/api/v1/voice/device/revoke", InsuranceIntelligence.Api.Voice.VoiceEndpoints.RevokeDevice)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCommandCenter));
+// The two background checks the phone makes with its own narrow credential (X-Device-Check), not a person's sign-in.
+app.MapGet("/api/v1/voice/device/nudge", InsuranceIntelligence.Api.Voice.VoiceEndpoints.DeviceNudge);
+app.MapPost("/api/v1/voice/device/wake", InsuranceIntelligence.Api.Voice.VoiceEndpoints.DeviceWake);
 app.MapPost("/api/v1/command-center/query/stream", CommandCenterQueryEndpoints.RunQueryStream)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCommandCenter));
 app.MapGet("/api/v1/command-center/conversations", CommandCenterConversationEndpoints.List)

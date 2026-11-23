@@ -3,16 +3,17 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import LiveVoiceSheet from "@/components/iip/LiveVoiceSheet";
 import { useUI } from "@/context/UIStateContext";
-import { canUseLocalTestDoubles } from "@/lib/config";
+import { apiBaseUrl, canUseLocalTestDoubles } from "@/lib/config";
 import { liveThread } from "@/lib/liveThread";
 import { cueEnd, cueStart, unlockAudio } from "@/lib/liveCues";
 import { useCommandCenterQuery, type CommandCenterBlock } from "@/lib/lovable-parity/data/commandCenterQuery";
 import { nativeCall, onNativeCallAction } from "@/lib/nativeCall";
+import { nativeDevice, onNativeTalk } from "@/lib/nativeDevice";
 import { useRuntimeContext } from "@/lib/runtimeContext";
 import { useLiveVoice, type LiveLanguage, type LiveTurn } from "@/lib/useLiveVoice";
 import { RealtimeVoiceEngine } from "@/lib/voice/realtimeEngine";
 import type { EngineHandlers, MicrophoneLike, VoiceOrbState } from "@/lib/voice/types";
-import { createVoiceApi, fetchVoiceStatus, type VoiceStatus } from "@/lib/voice/voiceApi";
+import { createVoiceApi, fetchVoiceStatus, registerDevice, type VoiceStatus } from "@/lib/voice/voiceApi";
 
 /**
  * The live conversation, kept in the app shell so it carries on while the person moves between screens: the sheet
@@ -42,6 +43,8 @@ export function useLiveVoiceContext(): LiveVoiceValue {
 
 const LANGUAGE_KEY = "iip.live.language";
 const CONSENT_KEY = "iip.live.consent";
+/** How long a wake phrase may stay unconfirmed before it is taken as heard. */
+const WAKE_WAIT_MILLISECONDS = 6_000;
 
 function readStored(key: string): string | null {
   try {
@@ -326,6 +329,46 @@ export default function LiveVoiceProvider({ children }: { children: ReactNode })
     [],
   );
   const lastStep = steps.length > 0 ? steps[steps.length - 1].label : null;
+
+  // The Android app hands the page a narrow credential so it can check for nudges while the app is closed and listen for
+  // "Hey Kato". Asked for once, when the phone holds none; a credential the server no longer knows is cleared by the app,
+  // which brings the page back here to ask again.
+  useEffect(() => {
+    if (!offered || !nativeDevice.available() || nativeDevice.hasCredential()) return;
+    let cancelled = false;
+    void registerDevice(role).then((token) => {
+      if (cancelled || !token) return;
+      nativeDevice.saveCredential(token, apiBaseUrl || window.location.origin);
+    });
+    return () => { cancelled = true; };
+  }, [offered, role]);
+
+  // A conversation the phone asked for: the wake phrase, or Talk now on a nudge. It starts as soon as voice is known to
+  // be ready, and a wake the server decides was not "Hey Kato" ends it again quietly.
+  const [talkAsked, setTalkAsked] = useState(false);
+  useEffect(() => {
+    if (nativeDevice.takeTalk()) setTalkAsked(true);
+    return onNativeTalk(() => { if (nativeDevice.takeTalk()) setTalkAsked(true); });
+  }, []);
+  const wakeWatch = useRef<number | null>(null);
+  useEffect(() => {
+    if (!talkAsked || !offered || status === undefined) return;
+    setTalkAsked(false);
+    if (open || (!realtimePossible && !turnPossible)) return;
+    startCall();
+    if (nativeDevice.wakeVerdict() === "yes") return;
+    const began = Date.now();
+    if (wakeWatch.current !== null) window.clearInterval(wakeWatch.current);
+    wakeWatch.current = window.setInterval(() => {
+      const verdict = nativeDevice.wakeVerdict();
+      // Still undecided after a few seconds counts as yes: a slow network must not cut off someone who did say it.
+      if (verdict === "pending" && Date.now() - began < WAKE_WAIT_MILLISECONDS) return;
+      if (wakeWatch.current !== null) window.clearInterval(wakeWatch.current);
+      wakeWatch.current = null;
+      if (verdict === "no") callActions.current.hangUp();
+    }, 250);
+  }, [offered, open, realtimePossible, startCall, status, talkAsked, turnPossible]);
+  useEffect(() => () => { if (wakeWatch.current !== null) window.clearInterval(wakeWatch.current); }, []);
 
   const unavailableReason = !offered
     ? undefined

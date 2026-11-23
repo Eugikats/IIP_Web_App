@@ -44,6 +44,9 @@ public class MainActivity extends Activity {
     private static final int STORAGE_PERMISSION_REQUEST = 1002;
     private static final int MICROPHONE_PERMISSION_REQUEST = 1003;
     private static final int NOTIFICATION_PERMISSION_REQUEST = 1004;
+    private static final int WAKE_PERMISSION_REQUEST = 1005;
+    /** Set by "Talk now" on a nudge and by the "Hey Kato" listener: open straight into a conversation. */
+    static final String EXTRA_TALK = "com.otic.iip.TALK";
     private static final long LOCK_CHECK_MILLISECONDS = 2000;
 
     private WebView webView;
@@ -53,6 +56,7 @@ public class MainActivity extends Activity {
     /** True only while the WebView is showing IIP's own site: the bridge below does nothing for any other page. */
     private volatile boolean ownPage;
     private volatile boolean callOpen;
+    private volatile boolean pendingTalk;
     private boolean lastLocked;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable lockCheck = new Runnable() {
@@ -122,6 +126,9 @@ public class MainActivity extends Activity {
                 super.onPageFinished(view, url);
                 if (ownPage) {
                     pushLockState(true);
+                    if (pendingTalk) {
+                        dispatchToPage("iip:native-talk", "{}");
+                    }
                 }
             }
 
@@ -189,8 +196,71 @@ public class MainActivity extends Activity {
             registerReceiver(callButtonReceiver, buttons);
         }
 
-        if (savedInstanceState == null || webView.restoreState(savedInstanceState) == null) {
-            webView.loadUrl(BuildConfig.START_URL);
+        boolean fresh = savedInstanceState == null || webView.restoreState(savedInstanceState) == null;
+        String opened = handleLaunchIntent(getIntent());
+        if (fresh) {
+            webView.loadUrl(opened != null ? opened : BuildConfig.START_URL);
+        } else if (opened != null) {
+            webView.loadUrl(opened);
+        }
+        NudgeCheck.schedule(this);
+    }
+
+    /**
+     * What a launch asks for. "Talk now" and the wake phrase ask for a conversation; a nudge asks for one screen inside IIP.
+     * Only an address on IIP's own site is ever loaded from an intent.
+     */
+    private String handleLaunchIntent(Intent intent) {
+        if (intent == null) {
+            return null;
+        }
+        if (intent.getBooleanExtra(EXTRA_TALK, false)) {
+            pendingTalk = true;
+            intent.removeExtra(EXTRA_TALK);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                // Opened by the wake phrase on a locked phone: show over the lock screen. The conversation itself reads out
+                // no figures while the phone is locked.
+                setShowWhenLocked(true);
+                setTurnScreenOn(true);
+            }
+        }
+        Uri data = intent.getData();
+        String ownHost = Uri.parse(BuildConfig.START_URL).getHost();
+        if (data != null && ownHost != null && "https".equalsIgnoreCase(data.getScheme()) && ownHost.equalsIgnoreCase(data.getHost())) {
+            return data.toString();
+        }
+        return null;
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        String opened = handleLaunchIntent(intent);
+        if (opened != null) {
+            webView.loadUrl(opened);
+        } else if (pendingTalk) {
+            dispatchToPage("iip:native-talk", "{}");
+        }
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        WakeWordService.appInFront = hasFocus;
+        // Android lets a service start the microphone only while the app is in front, so the "Hey Kato" listener is started
+        // here, once the person has switched it on, and not while the phone is locked.
+        if (hasFocus && !deviceLocked()) {
+            WakeWordService.start(this);
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(false);
+            setTurnScreenOn(false);
         }
     }
 
@@ -226,6 +296,11 @@ public class MainActivity extends Activity {
             } else {
                 request.deny();
             }
+        }
+        if (requestCode == WAKE_PERMISSION_REQUEST) {
+            boolean allowed = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+            WakeWordService.set(this, allowed);
+            dispatchToPage("iip:native-settings", "{}");
         }
     }
 
@@ -326,6 +401,110 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public boolean isLocked() {
             return ownPage && deviceLocked();
+        }
+
+        /** True once, after "Talk now" or the wake phrase asked for a conversation. */
+        @JavascriptInterface
+        public boolean takeTalk() {
+            if (!ownPage) {
+                return false;
+            }
+            boolean asked = pendingTalk;
+            pendingTalk = false;
+            return asked;
+        }
+
+        /** The server's verdict on the last wake phrase: pending, yes or no. */
+        @JavascriptInterface
+        public String wakeState() {
+            if (!ownPage) {
+                return "yes";
+            }
+            String verdict = WakeWordService.verdict;
+            boolean recent = System.currentTimeMillis() - WakeWordService.verdictAt < 15_000L;
+            return "pending".equals(verdict) || recent ? verdict : "yes";
+        }
+
+        @JavascriptInterface
+        public boolean handsFreeAvailable() {
+            return ownPage;
+        }
+
+        @JavascriptInterface
+        public boolean wakeOn() {
+            return ownPage && WakeWordService.on(MainActivity.this);
+        }
+
+        @JavascriptInterface
+        public boolean nudgesOn() {
+            return ownPage && NudgeCheck.on(MainActivity.this);
+        }
+
+        /** Switched on by the person in Settings; asks for the microphone first when it has not been allowed. */
+        @JavascriptInterface
+        public void setWake(boolean wanted) {
+            if (!ownPage) {
+                return;
+            }
+            runOnUiThread(() -> {
+                if (wanted && checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                    requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, WAKE_PERMISSION_REQUEST);
+                    return;
+                }
+                WakeWordService.set(MainActivity.this, wanted);
+                dispatchToPage("iip:native-settings", "{}");
+            });
+        }
+
+        @JavascriptInterface
+        public void setNudges(boolean wanted) {
+            if (!ownPage) {
+                return;
+            }
+            runOnUiThread(() -> {
+                if (wanted) {
+                    askForNotificationsOnce();
+                }
+                NudgeCheck.set(MainActivity.this, wanted);
+                dispatchToPage("iip:native-settings", "{}");
+            });
+        }
+
+        /**
+         * The signed-in page hands over the narrow credential for the two background checks (see DeviceCheck). Refused for any
+         * page that is not IIP's own site and for an address that is not https.
+         */
+        @JavascriptInterface
+        public boolean saveDeviceCheck(String token, String apiBase) {
+            if (!ownPage || !DeviceCheck.save(MainActivity.this, token, apiBase)) {
+                return false;
+            }
+            runOnUiThread(() -> NudgeCheck.schedule(MainActivity.this));
+            return true;
+        }
+
+        /** True when this phone already holds the credential, so the page does not ask for another one. */
+        @JavascriptInterface
+        public boolean hasDeviceCheck() {
+            return ownPage && DeviceCheck.present(MainActivity.this);
+        }
+
+        /**
+         * On sign-out: forget the credential and stop the listener and the checks. Returns the credential that was held (empty
+         * when none) so the page can have the server revoke it too; it is not kept anywhere after this.
+         */
+        @JavascriptInterface
+        public String clearDeviceCheck() {
+            if (!ownPage) {
+                return "";
+            }
+            String held = DeviceCheck.token(MainActivity.this);
+            DeviceCheck.clear(MainActivity.this);
+            runOnUiThread(() -> {
+                NudgeCheck.schedule(MainActivity.this);
+                WakeWordService.set(MainActivity.this, false);
+            });
+            return held == null ? "" : held;
         }
 
         @JavascriptInterface

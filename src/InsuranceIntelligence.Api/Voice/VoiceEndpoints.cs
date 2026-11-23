@@ -11,6 +11,8 @@ namespace InsuranceIntelligence.Api.Voice;
 
 public sealed record StartVoiceSessionRequest(string? PrepareId, string? SdpOffer, Guid? ConversationId, int? TimeZoneOffsetMinutes);
 
+public sealed record DeviceCheckRequest(string? Token);
+
 public sealed record VoiceMetricsRequest(Dictionary<string, double>? Marks);
 
 /// <summary>
@@ -179,6 +181,104 @@ public static class VoiceEndpoints
         var context = accessor.Current;
         var nudge = await nudges.NextAsync(context.TenantId + "|" + context.UserId, locked ?? false, cancellationToken);
         return nudge is null ? Results.NoContent() : Results.Ok(nudge);
+    }
+
+    // ---- the phone while the app is closed ---------------------------------------------------------------------------
+
+    private const string DeviceHeader = "X-Device-Check";
+
+    /// <summary>
+    /// Gives the signed-in app a narrow credential for its background checks (see <see cref="IDeviceChecks"/>). The page passes it
+    /// to the Android app, which keeps it in its own private storage. It can ask for the next nudge and confirm the wake
+    /// phrase, and nothing else.
+    /// </summary>
+    public static IResult RegisterDevice(
+        IDeviceChecks checks, ITenantContextSetter setter, ITenantContextAccessor accessor, InfrastructureOptions infrastructure, HttpContext http)
+    {
+        if (!CommandCenterQueryEndpoints.TrySetTenantContext(http, setter, infrastructure, out var error))
+        {
+            return error;
+        }
+
+        var grant = checks.Issue(accessor.Current);
+        return Results.Ok(new { token = grant.Token, expiresAt = grant.ExpiresAt });
+    }
+
+    /// <summary>Called on sign-out so a phone that stays signed out does not keep asking.</summary>
+    public static IResult RevokeDevice(
+        DeviceCheckRequest request, IDeviceChecks checks, ITenantContextSetter setter, InfrastructureOptions infrastructure, HttpContext http)
+    {
+        if (!CommandCenterQueryEndpoints.TrySetTenantContext(http, setter, infrastructure, out var error))
+        {
+            return error;
+        }
+
+        checks.Revoke(request.Token);
+        return Results.NoContent();
+    }
+
+    /// <summary>The next nudge for the phone's background check. Answers 204 when there is nothing to say, 401 when the credential is not known.</summary>
+    public static async Task<IResult> DeviceNudge(
+        bool? locked, IDeviceChecks checks, IVoiceNudges nudges, ITenantContextSetter setter, HttpContext http, CancellationToken cancellationToken)
+    {
+        var token = http.Request.Headers[DeviceHeader].ToString();
+        var person = checks.Resolve(token);
+        if (person is null)
+        {
+            return Results.Unauthorized();
+        }
+
+        if (!checks.TryUse(token, "nudge", 6))
+        {
+            return Results.StatusCode(StatusCodes.Status429TooManyRequests);
+        }
+
+        setter.SetCurrent(person);
+        var nudge = await nudges.NextAsync(person.TenantId + "|" + person.UserId, locked ?? false, cancellationToken);
+        return nudge is null ? Results.NoContent() : Results.Ok(nudge);
+    }
+
+    /// <summary>
+    /// The second look at the wake phrase: <c>POST /api/v1/voice/device/wake</c> with the two or three seconds the phone heard
+    /// as <c>audio</c> (16 kHz WAV). Twenty a minute per phone. Nothing is kept.
+    /// </summary>
+    public static async Task<IResult> DeviceWake(
+        IDeviceChecks checks, IWakeChecker checker, HttpContext http, CancellationToken cancellationToken)
+    {
+        var token = http.Request.Headers[DeviceHeader].ToString();
+        if (checks.Resolve(token) is null)
+        {
+            return Results.Unauthorized();
+        }
+
+        if (!checks.TryUse(token, "wake", 20))
+        {
+            return Results.StatusCode(StatusCodes.Status429TooManyRequests);
+        }
+
+        if (!http.Request.HasFormContentType)
+        {
+            return Results.BadRequest(new { code = "invalid_request", message = "Send the clip as multipart form data." });
+        }
+
+        var form = await http.Request.ReadFormAsync(cancellationToken);
+        var file = form.Files.GetFile("audio") ?? form.Files.FirstOrDefault();
+        if (file is null || file.Length < 4000 || file.Length > 400_000)
+        {
+            return Results.BadRequest(new { code = "no_audio", message = "There was no usable clip." });
+        }
+
+        if (!checker.IsConfigured)
+        {
+            return Results.Json(new { code = "not_configured", message = "Voice is not set up for this environment." }, statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
+
+        using var buffer = new MemoryStream();
+        await file.CopyToAsync(buffer, cancellationToken);
+        var result = await checker.CheckAsync(buffer.ToArray(), cancellationToken);
+        return result is null
+            ? Results.Json(new { code = "check_failed", message = "The wake check could not be made." }, statusCode: StatusCodes.Status502BadGateway)
+            : Results.Ok(new { wake = result.Wake, heard = result.Heard });
     }
 
     public static IResult ReadMetrics(

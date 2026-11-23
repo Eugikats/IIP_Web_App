@@ -12,13 +12,16 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- "Hey Kato" (off until the person turns it on) opens IIP over the lock screen; nudges survive a restart. -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
 
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
@@ -29,6 +32,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
@@ -41,5 +45,17 @@
             android:name=".VoiceCallService"
             android:exported="false"
             android:foregroundServiceType="microphone" />
+
+        <service
+            android:name=".WakeWordService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
+
+        <receiver android:name=".NudgeReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="com.otic.iip.NUDGE_CHECK" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

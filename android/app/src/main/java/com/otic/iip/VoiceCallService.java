@@ -37,6 +37,9 @@ public class VoiceCallService extends Service {
     /** The longest a call can last on the server is 15 minutes; the lock is released a little after that at the latest. */
     private static final long WAKE_LOCK_MILLISECONDS = 16L * 60L * 1000L;
 
+    /** A conversation is being held open; the "Hey Kato" listener steps aside while this is true. */
+    static volatile boolean running;
+
     private boolean muted;
     private PowerManager.WakeLock wakeLock;
 
@@ -50,6 +53,7 @@ public class VoiceCallService extends Service {
         }
         switch (action) {
             case ACTION_START:
+                running = true;
                 muted = false;
                 showNotification();
                 holdCpu();
@@ -81,11 +85,13 @@ public class VoiceCallService extends Service {
 
     @Override
     public void onDestroy() {
+        running = false;
         releaseCpu();
         super.onDestroy();
     }
 
     private void endService() {
+        running = false;
         releaseCpu();
         stopForeground(true);
         stopSelf();

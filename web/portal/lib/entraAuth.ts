@@ -19,6 +19,8 @@ import {
   setApiAccessToken,
 } from "@/lib/config";
 import { clearPlatformSession, platformAccessToken } from "@/lib/platformAuth";
+import { nativeDevice } from "@/lib/nativeDevice";
+import { revokeDevice } from "@/lib/voice/voiceApi";
 
 /** Which directory a person signs in through: Microsoft work accounts, or External ID (Google, email code). */
 export type SignInProvider = "work" | "external";
@@ -253,6 +255,12 @@ async function getEntraApiAccessTokenOnce(): Promise<string | null> {
  * this just clears the cached API token and returns to the sign-in landing page.
  */
 export async function signOut(returnPath: string = postLogoutPath): Promise<void> {
+  // The Android app's background credential goes first, while the sign-in token can still ask the server to revoke it.
+  if (typeof window !== "undefined") {
+    const held = nativeDevice.clearCredential();
+    if (held) await revokeDevice("ClaimsOfficer", held);
+  }
+
   if (platformAccessToken()) {
     clearPlatformSession();
     window.location.assign(returnPath);

@@ -70,6 +70,10 @@ test.beforeAll(async () => {
         res.writeHead(200, { ...cors, "Content-Type": "application/json" }).end(JSON.stringify({ sessionId: "s1", sdpAnswer: "answer-sdp", maxMinutes: 15 }));
         return;
       }
+      if (path === "device") {
+        res.writeHead(200, { ...cors, "Content-Type": "application/json" }).end(JSON.stringify({ token: "device-token-0123456789abcdef", expiresAt: "2026-12-07T08:00:00Z" }));
+        return;
+      }
       res.writeHead(204, cors).end();
       return;
     }
@@ -591,4 +595,122 @@ test("nothing is shown when the server has nothing to say", async ({ page }) => 
   await openHome(page);
   await expect.poll(() => voiceCalls.some((c) => c.path.startsWith("nudge")), { timeout: 15_000 }).toBe(true);
   await expect(page.getByTestId("nudge")).toHaveCount(0);
+});
+
+// ---- the Android app: "Hey Kato", nudges while the app is closed, and the credential they use ---------------------------
+
+type PhoneState = {
+  wake: boolean; nudges: boolean; credential: string; apiBase: string; talk: boolean; verdict: string; wakeCalls: boolean[]; nudgeCalls: boolean[]; cleared: number;
+};
+
+async function fakePhone(page: Page, initial: Partial<PhoneState> = {}) {
+  await page.addInitScript((given) => {
+    const state = { wake: false, nudges: true, credential: "", apiBase: "", talk: false, verdict: "yes", wakeCalls: [] as boolean[], nudgeCalls: [] as boolean[], cleared: 0, ...given };
+    const w = window as unknown as { __phone: typeof state; IipNative: Record<string, unknown> };
+    w.__phone = state;
+    w.IipNative = {
+      isLocked: () => false,
+      handsFreeAvailable: () => true,
+      wakeOn: () => state.wake,
+      nudgesOn: () => state.nudges,
+      setWake: (wanted: boolean) => { state.wakeCalls.push(wanted); state.wake = wanted; },
+      setNudges: (wanted: boolean) => { state.nudgeCalls.push(wanted); state.nudges = wanted; },
+      hasDeviceCheck: () => state.credential !== "",
+      saveDeviceCheck: (token: string, apiBase: string) => { state.credential = token; state.apiBase = apiBase; return true; },
+      clearDeviceCheck: () => { const held = state.credential; state.credential = ""; state.cleared += 1; return held; },
+      takeTalk: () => { const asked = state.talk; state.talk = false; return asked; },
+      wakeState: () => state.verdict,
+      callStarted: () => undefined,
+      callEnded: () => undefined,
+      callMuted: () => undefined,
+    };
+  }, initial);
+}
+
+const phone = (page: Page) => page.evaluate(() => (window as unknown as { __phone: PhoneState }).__phone);
+
+async function startRealtimeAsked(page: Page) {
+  realtimeAvailable = true;
+  await fakeWebRtc(page);
+  await page.addInitScript(() => { try { window.localStorage.setItem("iip.live.consent", "yes"); } catch { /* storage blocked */ } });
+  await page.goto("/app/workspace");
+}
+
+test("the phone settings card is not drawn in a browser", async ({ page }) => {
+  await page.goto("/app/settings");
+  await expect(page.getByRole("dialog")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("phone-voice")).toHaveCount(0);
+});
+
+test("the app asks the server for a narrow credential once and keeps it on the phone", async ({ page }) => {
+  await fakePhone(page);
+  await openHome(page);
+  await expect.poll(async () => (await phone(page)).credential, { timeout: 15_000 }).toBe("device-token-0123456789abcdef");
+  expect((await phone(page)).apiBase).toMatch(/^https?:\/\//);
+  expect(voiceCalls.filter((c) => c.path === "device")).toHaveLength(1);
+});
+
+test("a phone that already holds the credential does not ask for another", async ({ page }) => {
+  await fakePhone(page, { credential: "already-held-0123456789abcdef" });
+  await openHome(page);
+  await page.waitForTimeout(1500);
+  expect(voiceCalls.some((c) => c.path === "device")).toBe(false);
+});
+
+test("Hey Kato is off until switched on, and nudges can be switched off, from This phone in Settings", async ({ page }) => {
+  await fakePhone(page);
+  await page.goto("/app/settings");
+  await expect(page.getByTestId("phone-voice")).toBeVisible({ timeout: 30_000 });
+  const wake = page.getByRole("switch", { name: /Hey Kato/ });
+  const nudges = page.getByRole("switch", { name: /something needs me/ });
+  await expect(wake).toHaveAttribute("aria-checked", "false");
+  await expect(nudges).toHaveAttribute("aria-checked", "true");
+
+  await wake.click();
+  await expect(wake).toHaveAttribute("aria-checked", "true");
+  await nudges.click();
+  await expect(nudges).toHaveAttribute("aria-checked", "false");
+  expect((await phone(page)).wakeCalls).toEqual([true]);
+  expect((await phone(page)).nudgeCalls).toEqual([false]);
+
+  // The phone can refuse (the microphone was not allowed); the page follows what the phone says, not what was tapped.
+  await page.evaluate(() => { (window as unknown as { __phone: PhoneState }).__phone.wake = false; window.dispatchEvent(new CustomEvent("iip:native-settings")); });
+  await expect(wake).toHaveAttribute("aria-checked", "false");
+});
+
+test("the phone settings card fits the screen width and its switches are easy to press", async ({ page }, testInfo) => {
+  await fakePhone(page);
+  await page.goto("/app/settings");
+  await expect(page.getByTestId("phone-voice")).toBeVisible({ timeout: 30_000 });
+  await page.getByTestId("phone-voice").scrollIntoViewIfNeeded();
+  await expectNoSidewaysScroll(page);
+  await page.screenshot({ path: process.env.IIP_SHOT_DIR ? `${process.env.IIP_SHOT_DIR}/phone-settings-${testInfo.project.name}.png` : testInfo.outputPath("phone-settings.png") });
+  for (const row of ["phone-voice-wake", "phone-voice-nudges"]) {
+    const box = await page.getByTestId(row).getByRole("switch").boundingBox();
+    expect(box!.height).toBeGreaterThanOrEqual(44);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+  }
+});
+
+test("a conversation the phone asked for starts by itself once voice is ready", async ({ page }) => {
+  await fakePhone(page, { talk: true });
+  await startRealtimeAsked(page);
+  await expect(page.getByTestId("live-state")).toHaveText("Listening", { timeout: 30_000 });
+});
+
+test("a wake the server decides was not Hey Kato ends the conversation again", async ({ page }) => {
+  await fakePhone(page, { talk: true, verdict: "pending" });
+  await startRealtimeAsked(page);
+  await expect(page.getByTestId("live-state")).toHaveText("Listening", { timeout: 30_000 });
+  await page.evaluate(() => { (window as unknown as { __phone: PhoneState }).__phone.verdict = "no"; });
+  await expect(page.getByTestId("live-sheet")).toHaveCount(0, { timeout: 10_000 });
+});
+
+test("a confirmed wake leaves the conversation running", async ({ page }) => {
+  await fakePhone(page, { talk: true, verdict: "pending" });
+  await startRealtimeAsked(page);
+  await expect(page.getByTestId("live-state")).toHaveText("Listening", { timeout: 30_000 });
+  await page.evaluate(() => { (window as unknown as { __phone: PhoneState }).__phone.verdict = "yes"; });
+  await page.waitForTimeout(1200);
+  await expect(page.getByTestId("live-sheet")).toBeVisible();
 });
