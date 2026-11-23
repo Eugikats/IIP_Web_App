@@ -647,3 +647,62 @@ textarea:focus-visible {
     animation: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   The agent orb: the one living mark of the Assistant (design language v2 §4.5
+   allows the orb gradient). It shows what the agent is doing through its rings
+   and motion, never through glow or shadow. A state is always also written as a
+   word next to the orb, so motion is never the only signal, and the global
+   reduced-motion block above stops every animation here.
+   --------------------------------------------------------------------------- */
+.iip-orb {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: var(--orb-size, 40px);
+  height: var(--orb-size, 40px);
+  flex: none;
+}
+.iip-orb__core {
+  width: 62%;
+  height: 62%;
+  border-radius: 9999px;
+  background-image: var(--gradient-orb);
+  transition: transform 220ms ease, filter 220ms ease, opacity 220ms ease;
+}
+.iip-orb__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 1.5px solid rgb(var(--color-primary) / 0.45);
+  opacity: 0;
+  pointer-events: none;
+}
+.iip-orb__slash {
+  position: absolute;
+  width: 78%;
+  height: 2px;
+  border-radius: 2px;
+  background: rgb(var(--color-text-secondary));
+  transform: rotate(-45deg);
+  opacity: 0;
+}
+@keyframes iip-orb-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+@keyframes iip-orb-ring-out { 0% { transform: scale(0.62); opacity: 0.55; } 100% { transform: scale(1); opacity: 0; } }
+@keyframes iip-orb-spin { to { transform: rotate(360deg); } }
+@keyframes iip-orb-pulse { 0%, 100% { opacity: 0.25; } 50% { opacity: 0.8; } }
+@keyframes iip-orb-squash { 0% { transform: scale(1); } 35% { transform: scale(0.82); } 100% { transform: scale(1); } }
+
+.iip-orb[data-state="idle"] .iip-orb__core { animation: iip-orb-breathe 4.2s ease-in-out infinite; }
+.iip-orb[data-state="listening"] .iip-orb__core { transform: scale(calc(1 + var(--orb-level, 0) * 0.18)); }
+.iip-orb[data-state="listening"] .iip-orb__ring { opacity: calc(0.25 + var(--orb-level, 0) * 0.6); transform: scale(calc(0.74 + var(--orb-level, 0) * 0.26)); transition: transform 90ms linear, opacity 90ms linear; }
+.iip-orb[data-state="speaking"] .iip-orb__ring { animation: iip-orb-ring-out 1.5s ease-out infinite; }
+.iip-orb[data-state="speaking"] .iip-orb__ring:nth-of-type(2) { animation-delay: 0.5s; }
+.iip-orb[data-state="speaking"] .iip-orb__ring:nth-of-type(3) { animation-delay: 1s; }
+.iip-orb[data-state="processing"] .iip-orb__ring { opacity: 1; border-style: dashed; animation: iip-orb-spin 2.4s linear infinite; }
+.iip-orb[data-state="processing"] .iip-orb__core { animation: iip-orb-breathe 1.6s ease-in-out infinite; }
+.iip-orb[data-state="interrupted"] .iip-orb__core { animation: iip-orb-squash 420ms ease-out 1; }
+.iip-orb[data-state="muted"] .iip-orb__core { filter: grayscale(1); opacity: 0.55; }
+.iip-orb[data-state="muted"] .iip-orb__slash { opacity: 1; }
+.iip-orb[data-state="reconnecting"] .iip-orb__core { opacity: 0.5; }
+.iip-orb[data-state="reconnecting"] .iip-orb__ring { opacity: 1; border-style: dashed; animation: iip-orb-pulse 1.4s ease-in-out infinite; }

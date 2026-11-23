@@ -27,7 +27,7 @@ public sealed class SunbirdVoiceNoteTranscriber(
     IWhatsAppInboundProvider whatsAppProvider,
     InsuranceIntelligence.Infrastructure.WhatsApp.IWhatsAppRuntimeSettingsProvider whatsAppSettings,
     IHttpClientFactory httpClientFactory,
-    ILogger<SunbirdVoiceNoteTranscriber> logger) : IVoiceNoteTranscriber, IVoiceNoteSpeaker
+    ILogger<SunbirdVoiceNoteTranscriber> logger) : IVoiceNoteTranscriber, IVoiceNoteSpeaker, IStaffVoiceTranscriber
 {
     private const string SunbirdProviderKey = "Sunbird";
 
@@ -67,33 +67,65 @@ public sealed class SunbirdVoiceNoteTranscriber(
                 return null;
             }
 
-            using var form = new MultipartFormDataContent();
-            var audio = new ByteArrayContent(media.ContentBytes);
-            audio.Headers.ContentType = MediaTypeHeaderValue.Parse(BaseMediaType(media.ContentType));
-            form.Add(audio, "audio", "voice-note.ogg");
-            form.Add(new StringContent(LanguageFor(preferredLanguage)), "language");
-
-            using var request = new HttpRequestMessage(HttpMethod.Post, $"{settings.Endpoint}/tasks/audio/transcriptions") { Content = form };
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", settings.ApiKey);
-            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeout.CancelAfter(Timeout);
-            using var response = await httpClientFactory.CreateClient(nameof(SunbirdVoiceNoteTranscriber)).SendAsync(request, timeout.Token);
-            if (!response.IsSuccessStatusCode)
-            {
-                logger.LogWarning("Sunbird transcription failed with HTTP {StatusCode}.", (int)response.StatusCode);
-                return null;
-            }
-
-            await using var body = await response.Content.ReadAsStreamAsync(cancellationToken);
-            using var json = await JsonDocument.ParseAsync(body, cancellationToken: cancellationToken);
-            var text = ReadTranscript(json.RootElement);
-            return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+            return await SendForTranscriptAsync(settings, media.ContentBytes, BaseMediaType(media.ContentType), "voice-note.ogg", LanguageFor(preferredLanguage), cancellationToken);
         }
         catch (Exception exception) when (exception is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             logger.LogWarning("Voice note transcription failed safely. ErrorType={ErrorType}", exception.GetType().Name);
             return null;
         }
+    }
+
+    /// <summary>A person's own recording from the portal (a staff voice note), not a WhatsApp media item. The
+    /// audio is sent to Sunbird for transcription and is not stored by IIP.</summary>
+    public async Task<string?> TranscribeAudioAsync(
+        TenantScope scope, byte[] audio, string? contentType, SupportedLanguageCode? preferredLanguage, CancellationToken cancellationToken = default)
+    {
+        var settings = await SettingsAsync(scope, cancellationToken);
+        if (settings is null || audio.Length == 0 || audio.Length > MaxAudioBytes)
+        {
+            return null;
+        }
+
+        try
+        {
+            var type = BaseMediaType(contentType);
+            return await SendForTranscriptAsync(settings, audio, type, type.EndsWith("wav", StringComparison.OrdinalIgnoreCase) ? "voice-note.wav" : "voice-note.ogg", LanguageFor(preferredLanguage), cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            logger.LogWarning("Staff voice note transcription failed safely. ErrorType={ErrorType}", exception.GetType().Name);
+            return null;
+        }
+    }
+
+    public async Task<bool> IsStaffTranscriptionAvailableAsync(TenantScope scope, CancellationToken cancellationToken = default) =>
+        await SettingsAsync(scope, cancellationToken) is not null;
+
+    private async Task<string?> SendForTranscriptAsync(
+        SunbirdSettings settings, byte[] audioBytes, string mediaType, string fileName, string language, CancellationToken cancellationToken)
+    {
+        using var form = new MultipartFormDataContent();
+        var audio = new ByteArrayContent(audioBytes);
+        audio.Headers.ContentType = MediaTypeHeaderValue.Parse(mediaType);
+        form.Add(audio, "audio", fileName);
+        form.Add(new StringContent(language), "language");
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"{settings.Endpoint}/tasks/audio/transcriptions") { Content = form };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", settings.ApiKey);
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(Timeout);
+        using var response = await httpClientFactory.CreateClient(nameof(SunbirdVoiceNoteTranscriber)).SendAsync(request, timeout.Token);
+        if (!response.IsSuccessStatusCode)
+        {
+            logger.LogWarning("Sunbird transcription failed with HTTP {StatusCode}.", (int)response.StatusCode);
+            return null;
+        }
+
+        await using var body = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var json = await JsonDocument.ParseAsync(body, cancellationToken: cancellationToken);
+        var text = ReadTranscript(json.RootElement);
+        return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
     }
 
     /// <summary>Sunbird's text-to-speech (POST /tasks/audio/speech, streamed WAV), encoded to the

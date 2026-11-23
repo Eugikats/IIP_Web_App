@@ -27,7 +27,13 @@ The APK is `app/build/outputs/apk/release/app-release.apk`. Copy it to the repo 
 - Accepts cookies, so the Microsoft sign-in session survives. The portal signs in by redirect, which works in a WebView.
 - File upload through the system picker; downloads through the system downloader, with the session cookie.
 - Pads the page by the status bar, navigation bar and keyboard, because an app targeting SDK 35 otherwise draws underneath them.
+- Microphone for the portal's voice note and live conversation: asked for only when a person taps Record or Talk, granted only to IIP's own site and only for audio capture. A small `IipNative.haptic(ms)` bridge lets the page tap the phone (clamped to 60 ms). `versionCode` 2 (1.1.0) added this.
+- A live conversation keeps going with the phone in a pocket: while the page has a call open a foreground service of type microphone (`VoiceCallService`) shows a notification with Mute and Hang up, and holds the CPU awake for at most 16 minutes. Permissions: `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MICROPHONE`, `POST_NOTIFICATIONS` (asked once, from the person's own tap on Talk; the call still works without it), `WAKE_LOCK`. The page tells the app about the call through `IipNative.callStarted()`, `callEnded()` and `callMuted(boolean)`; the notification buttons come back to the page as the `iip:native-mute` and `iip:native-hangup` events.
+- Device lock: the app reads `KeyguardManager.isDeviceLocked()` (not the keyguard-showing flag, which some makers report wrongly) and sends `iip:device-lock` to the page whenever it changes, and `IipNative.isLocked()` answers directly. The page then asks the server to withhold figures.
+- Every `IipNative` method does nothing unless the WebView is showing IIP's own site, so a link to another website cannot start the service or tap the phone.
+- `versionCode` 3 (1.2.0) adds the call service and lock state. **Not built or run:** the sources compile with `javac` against the Android 35 SDK, but Gradle could not start in the authoring environment, so no APK was produced and none of this has run on a phone. Raise `versionCode` again for the next APK.
 - Back goes back in the page history.
+- Not in the app: a wake word ("Hey ...") and background nudges. Neither exists yet; see `docs/01-strategy-requirements-roadmap/IIP_LIVE_VOICE_BUILD_PLAN.md` section 1a.
 
 ## Known limits
 

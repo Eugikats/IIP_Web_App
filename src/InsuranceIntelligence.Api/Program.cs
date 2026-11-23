@@ -583,6 +583,19 @@ builder.Services.AddSingleton<IAiOutputValidator, DeterministicAiOutputValidator
 builder.Services.AddSingleton<IIntentClassifier, DeterministicThenAiIntentClassifier>();
 builder.Services.AddSingleton<IProviderRequirementResolver, ProviderRequirementResolver>();
 builder.Services.AddScoped<INotificationDraftService, CustomerUpdateNotificationDraftService>();
+builder.Services.AddSingleton(builder.Configuration.GetSection("Voice:Limits").Get<InsuranceIntelligence.Application.Voice.VoiceLimitOptions>() ?? new InsuranceIntelligence.Application.Voice.VoiceLimitOptions());
+builder.Services.AddSingleton<InsuranceIntelligence.Application.Voice.IVoiceLimits, InsuranceIntelligence.Application.Voice.VoiceLimits>();
+builder.Services.AddSingleton(builder.Configuration.GetSection("Voice:Live").Get<InsuranceIntelligence.Application.Voice.VoiceLiveOptions>() ?? new InsuranceIntelligence.Application.Voice.VoiceLiveOptions());
+builder.Services.AddSingleton<InsuranceIntelligence.Application.Voice.IVoiceTimings, InsuranceIntelligence.Application.Voice.VoiceTimings>();
+builder.Services.AddSingleton(builder.Configuration.GetSection("Voice:Nudges").Get<InsuranceIntelligence.Application.Voice.VoiceNudgeOptions>() ?? new InsuranceIntelligence.Application.Voice.VoiceNudgeOptions());
+builder.Services.AddSingleton<InsuranceIntelligence.Application.Voice.IVoiceNudgeLedger, InsuranceIntelligence.Application.Voice.VoiceNudgeLedger>();
+builder.Services.AddScoped<InsuranceIntelligence.Application.Voice.IVoiceNudges, InsuranceIntelligence.Application.Voice.VoiceNudges>();
+builder.Services.AddSingleton<InsuranceIntelligence.Application.Voice.IVoiceLiveTransportFactory, InsuranceIntelligence.Api.Voice.VoiceLiveWebSocketTransportFactory>();
+builder.Services.AddSingleton<InsuranceIntelligence.Application.Voice.IVoiceScopeFactory, InsuranceIntelligence.Api.Voice.VoiceScopeFactory>();
+builder.Services.AddSingleton<InsuranceIntelligence.Application.Voice.VoiceToolbox>();
+builder.Services.AddSingleton<InsuranceIntelligence.Application.Voice.IVoiceSessionBroker, InsuranceIntelligence.Application.Voice.VoiceSessionBroker>();
+builder.Services.AddScoped<AgentProgress>();
+builder.Services.AddScoped<IAgentProgress>(sp => sp.GetRequiredService<AgentProgress>());
 builder.Services.AddScoped<ICommandCenterAnalyst, CommandCenterAnalyst>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.Billing.IAiCreditsSummaryService, InsuranceIntelligence.Application.Billing.AiCreditsSummaryService>();
 builder.Services.AddScoped<ICommandCenterQueryService, CommandCenterQueryService>();
@@ -849,6 +862,7 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.DemoScenarios.DemoS
 builder.Services.AddScoped<InsuranceIntelligence.Application.DemoScenarios.DemoScenarioService>();
 builder.Services.AddScoped<InsuranceIntelligence.Infrastructure.Translation.SunbirdVoiceNoteTranscriber>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.IVoiceNoteTranscriber>(sp => sp.GetRequiredService<InsuranceIntelligence.Infrastructure.Translation.SunbirdVoiceNoteTranscriber>());
+builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.IStaffVoiceTranscriber>(sp => sp.GetRequiredService<InsuranceIntelligence.Infrastructure.Translation.SunbirdVoiceNoteTranscriber>());
 builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.IVoiceNoteSpeaker>(sp => sp.GetRequiredService<InsuranceIntelligence.Infrastructure.Translation.SunbirdVoiceNoteTranscriber>());
 builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.IDemoPolicyholderLoader>(
     services => services.GetRequiredService<InsuranceIntelligence.Application.DemoSeeding.MicroinsuranceDemoSeeder>());
@@ -1342,6 +1356,34 @@ app.MapGet("/api/v1/assistant/actions/{caseId:guid}", AssistantEndpoints.ListAct
 app.MapGet("/api/v1/command-center/metrics", CommandCenterMetricsLoader.GetMetrics)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCommandCenter));
 app.MapPost("/api/v1/command-center/query", CommandCenterQueryEndpoints.RunQuery)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCommandCenter));
+app.MapGet("/api/v1/command-center/voice-note/status", CommandCenterVoiceEndpoints.Status)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCommandCenter));
+app.MapPost("/api/v1/command-center/voice-note", CommandCenterVoiceEndpoints.Transcribe)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCommandCenter));
+app.MapPost("/api/v1/command-center/voice-reply", CommandCenterVoiceEndpoints.Speak)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCommandCenter));
+app.MapGet("/api/v1/voice/status", InsuranceIntelligence.Api.Voice.VoiceEndpoints.Status)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCommandCenter));
+app.MapPost("/api/v1/voice/session/prepare", InsuranceIntelligence.Api.Voice.VoiceEndpoints.Prepare)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCommandCenter));
+app.MapPost("/api/v1/voice/session", InsuranceIntelligence.Api.Voice.VoiceEndpoints.Start)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCommandCenter));
+app.MapGet("/api/v1/voice/session/{sessionId}/events", InsuranceIntelligence.Api.Voice.VoiceEndpoints.Events)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCommandCenter));
+app.MapPost("/api/v1/voice/session/{sessionId}/lock", InsuranceIntelligence.Api.Voice.VoiceEndpoints.Lock)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCommandCenter));
+app.MapPost("/api/v1/voice/session/{sessionId}/unlock", InsuranceIntelligence.Api.Voice.VoiceEndpoints.Unlock)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCommandCenter));
+app.MapPost("/api/v1/voice/session/{sessionId}/end", InsuranceIntelligence.Api.Voice.VoiceEndpoints.End)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCommandCenter));
+app.MapPost("/api/v1/voice/metrics", InsuranceIntelligence.Api.Voice.VoiceEndpoints.Metrics)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCommandCenter));
+app.MapGet("/api/v1/voice/metrics", InsuranceIntelligence.Api.Voice.VoiceEndpoints.ReadMetrics)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewAuditLog));
+app.MapGet("/api/v1/voice/nudge", InsuranceIntelligence.Api.Voice.VoiceEndpoints.NextNudge)
+    .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCommandCenter));
+app.MapPost("/api/v1/command-center/query/stream", CommandCenterQueryEndpoints.RunQueryStream)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCommandCenter));
 app.MapGet("/api/v1/command-center/conversations", CommandCenterConversationEndpoints.List)
     .AddEndpointFilter(new PermissionEndpointFilter(Permission.ViewCommandCenter));

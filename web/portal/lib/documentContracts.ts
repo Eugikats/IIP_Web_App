@@ -14,6 +14,17 @@ export type DocumentValidationWarning = {
   observedValue?: string | null;
 };
 
+/** Where a value sits on a page, as fractions (0 to 1) of that page from its top left. */
+export type DocumentFieldBox = {
+  pageNumber: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  polygon?: number[] | null;
+  parts?: DocumentFieldBox[] | null;
+};
+
 export type DocumentFieldVerification = {
   name: string;
   extractedValue: string;
@@ -25,6 +36,8 @@ export type DocumentFieldVerification = {
   warnings: DocumentValidationWarning[];
   correctedAt?: string | null;
   correctionReference?: string | null;
+  /** Absent when the extraction provider gave no position for this value. */
+  boundingBox?: DocumentFieldBox | null;
 };
 
 export type DocumentItem = {
@@ -77,4 +90,12 @@ export function documentContractLabel(value: string) {
     .replace(/\s+/g, " ")
     .trim();
   return label.replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+/**
+ * A name a person can read for an extracted field. The provider's keys carry a source prefix
+ * ("field.", "keyValue.") that is plumbing, not part of the name.
+ */
+export function documentFieldLabel(name: string) {
+  return documentContractLabel(name.replace(/^(field|keyValue)\./i, "")).replace(/\./g, " ");
 }

@@ -61,12 +61,16 @@ public sealed record DocumentResponse(
     // Build-loop item 26: the earlier claim this file was reused from, when the customer chose "use the one on file".
     string? ReusedFromClaim = null);
 
+/// <summary>Where a value sits on a page, as fractions (0 to 1) of that page, from its top left. Polygon holds
+/// the exact corners (x0, y0, x1, y1, ...) and Parts the separate pieces of a value that spans lines or pages.</summary>
 public sealed record BoundingBoxResponse(
     int PageNumber,
     double X,
     double Y,
     double Width,
-    double Height);
+    double Height,
+    IReadOnlyList<double>? Polygon = null,
+    IReadOnlyList<BoundingBoxResponse>? Parts = null);
 
 public sealed record DocumentFieldVerificationResponse(
     string Name,

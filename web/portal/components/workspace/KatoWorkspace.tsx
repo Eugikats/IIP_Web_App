@@ -1,12 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { AlertTriangle, BarChart3, CheckCircle2, ChevronRight, ClipboardCheck, Download, FileSpreadsheet, FolderOpen, Loader2, Users, X, type LucideIcon } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/Button";
 import { Link } from "@/components/iip/NextRouterCompat";
 import { CommandCenterBlocks } from "@/components/iip/CommandCenterAnswer";
 import CcComposer from "@/components/command-center/CcComposer";
+import AgentOrb from "@/components/iip/AgentOrb";
+import AgentWorking from "@/components/iip/AgentWorking";
+import AgentBrief from "@/components/iip/AgentBrief";
+import { useAgentBrief } from "@/lib/agentBrief";
+import { useVoiceAvailable, useVoiceNote } from "@/lib/voiceNote";
+import { useLiveVoiceContext } from "@/components/iip/LiveVoiceProvider";
+import { EMPTY_THREAD, liveThread } from "@/lib/liveThread";
 import { StatusPill, type PillTone } from "@/components/ui/StatusPill";
 import { useUI } from "@/context/UIStateContext";
 import { canUseLocalTestDoubles } from "@/lib/config";
@@ -376,7 +383,7 @@ function ChartCard({ series }: { series: ChartSeries }) {
 export default function KatoWorkspace() {
   const { roleDef } = useUI();
   const { runtimeContext, parityMode } = useRuntimeContext();
-  const { ask } = useCommandCenterQuery();
+  const { ask, steps } = useCommandCenterQuery();
   const permissions = runtimeContext?.permissions ?? [];
   const canView = canUseLocalTestDoubles || parityMode || permissions.includes("ViewSalesLeads");
   const canManage = canUseLocalTestDoubles || parityMode || permissions.includes("ManageSalesLeads");
@@ -387,8 +394,14 @@ export default function KatoWorkspace() {
   const canClaims = canUseLocalTestDoubles || parityMode || permissions.some((permission) => ["ViewAllClaims", "ViewAssignedClaims"].includes(permission));
   const canWork = canUseLocalTestDoubles || parityMode || permissions.includes("ReviewAgentWorkItems") || permissions.includes("ApproveSettlementWorkflowStep");
 
+  const brief = useAgentBrief(canAssistant, roleDef.key);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  // A voice note is turned into words that wait in the box. The person reads them, fixes any mis-heard
+  // word and sends; nothing a recording says is sent on its own.
+  const voiceAvailable = useVoiceAvailable(canAssistant, roleDef.key);
+  const voiceOff = voiceAvailable === false ? "Voice is not set up for this workspace. An administrator can connect a speech provider in Settings." : undefined;
+  const voiceNote = useVoiceNote(roleDef.key, (text) => setInput((current) => (current.trim() ? `${current.trim()} ${text}` : text)));
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -406,11 +419,38 @@ export default function KatoWorkspace() {
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
-  }, [messages, busy]);
+  }, [messages, busy, steps]);
 
   function push(message: NewMessage) {
     setMessages((current) => [...current, { ...message, id: nextId.current++ } as Message]);
   }
+
+  // The live conversation lives in the app shell, so it carries on across screens. What was said and shown in it is
+  // added to this thread, now or when the person comes back, through the shared thread.
+  const liveVoice = useLiveVoiceContext();
+  const liveItems = useSyncExternalStore(liveThread.subscribe, liveThread.getSnapshot, () => EMPTY_THREAD);
+  const liveSeen = useRef(0);
+  useEffect(() => {
+    for (const item of liveItems.slice(liveSeen.current)) {
+      if (item.kind === "exchange") {
+        push({ from: "user", text: item.question });
+        push({ from: "kato", kind: "answer", answer: item.answer });
+      } else if (item.kind === "said") {
+        push(item.who === "you" ? { from: "user", text: item.text } : { from: "kato", kind: "text", text: item.text });
+      } else {
+        const now = new Date().toISOString();
+        push({
+          from: "kato",
+          kind: "answer",
+          answer: { question: "", blocks: item.blocks, canTriggerDecision: false, generatedAt: now, dataAsOf: now, snapshotId: `live-${item.id}`, source: "live", limitations: "Shown during a live conversation from the current tenant-scoped snapshot." },
+        });
+      }
+    }
+    liveSeen.current = liveItems.length;
+    if (liveThread.conversationId) conversationId.current ??= liveThread.conversationId;
+  // push only appends to local state; it is deliberately not a dependency
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveItems]);
 
   function chooseFile(candidate: File | undefined) {
     setFileError(null);
@@ -472,13 +512,14 @@ export default function KatoWorkspace() {
       push({ from: "kato", kind: "text", text: intent.reply });
     } else {
       setBusy("Checking workspace records");
-      const result = await ask(text, conversationId.current, crypto.randomUUID());
+      const result = await ask(text, conversationId.current ?? liveThread.conversationId, crypto.randomUUID());
       setBusy(null);
       if (!result.ok) {
         push({ from: "kato", kind: "text", text: result.message, error: true });
         return;
       }
       conversationId.current = result.answer.conversationId ?? conversationId.current;
+      liveThread.setConversationId(result.answer.conversationId);
       push({ from: "kato", kind: "answer", answer: result.answer });
       if (result.answer.conversationId) window.dispatchEvent(new CustomEvent("iip:conversations-changed"));
     }
@@ -504,6 +545,7 @@ export default function KatoWorkspace() {
           </span>
         </p>
       ) : null}
+      {voiceNote.error ? <p role="alert" className="mx-auto mb-2 max-w-3xl px-2 text-center text-xs text-dls-danger-text">{voiceNote.error}</p> : null}
       {fileError ? <p role="alert" className="mx-auto mb-2 max-w-3xl px-2 text-center text-xs text-dls-danger-text">{fileError}</p> : null}
       <input
         ref={fileInput}
@@ -526,6 +568,9 @@ export default function KatoWorkspace() {
         placeholder={canView ? "Ask anything or tell me what to do..." : "Ask about claims, customers or your assigned work"}
         ariaLabel="Message Kato"
         onAttach={() => fileInput.current?.click()}
+        voice={voiceNote.supported && canAssistant ? { state: voiceNote.state, seconds: voiceNote.seconds, level: voiceNote.level, onStart: () => void voiceNote.start(), onStop: voiceNote.stop, onCancel: voiceNote.cancel, disabledReason: voiceOff } : undefined}
+        onTalk={voiceNote.supported && canAssistant && liveVoice.offered ? liveVoice.start : undefined}
+        talkDisabledReason={liveVoice.unavailableReason}
         attachDisabled={!canManage}
         attachLabel="Attach a customer workbook"
         attachTitle={canManage ? "Attach an .xlsx or .csv workbook" : "Your role cannot analyse customer files"}
@@ -556,6 +601,10 @@ export default function KatoWorkspace() {
         <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col">
           <div className="flex-1" aria-hidden="true" />
           <header className="shrink-0 text-center">
+            <div className="mb-4 flex flex-col items-center gap-1.5">
+              <AgentOrb state={busy ? "processing" : "idle"} size={64} />
+              <span className="text-xs text-slate-500" role="status">{busy ? "Working on it" : "Ready"}</span>
+            </div>
             <p className="m-0 mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
               {workspace?.name ?? "Insurance Intelligence Platform"}
               {localTime ? <span className="font-normal normal-case tracking-normal"> · {localTime.date}</span> : null}
@@ -568,6 +617,7 @@ export default function KatoWorkspace() {
               Ask about claims, customers or acquisition, or analyse a customer workbook if your role allows it.
             </p>
           </header>
+          {canAssistant ? <AgentBrief brief={brief} /> : null}
           <div className="flex-1" aria-hidden="true" />
           {hasComposer ? (
             composer
@@ -629,9 +679,7 @@ export default function KatoWorkspace() {
         })}
         {busy && (
           <Bubble from="kato">
-            <p className="m-0 inline-flex items-center gap-2 text-slate-500" role="status">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> {busy}
-            </p>
+            <AgentWorking steps={steps.length > 0 ? steps.map((step) => step.label) : [busy]} />
           </Bubble>
         )}
         <div ref={endRef} />

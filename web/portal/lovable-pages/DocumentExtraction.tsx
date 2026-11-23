@@ -10,10 +10,11 @@ import { Badge, ConfidenceBadge, GlassCard, SectionHeader, StatusBadge } from "@
 import { Button } from "@/components/ui/Button";
 import { Field, Select } from "@/components/ui/Input";
 import { LoadingSkeleton, EmptyStateSurface } from "@/components/ui/StateSurfaces";
-import { documentContractLabel, type DocumentItem } from "@/lib/documentContracts";
+import { documentContractLabel, documentFieldLabel, type DocumentItem } from "@/lib/documentContracts";
 import { apiBaseUrl, scopedHeaders } from "@/lib/config";
 import { useUI } from "@/context/UIStateContext";
 import { DocumentFilingPanel } from "@/components/iip/DocumentFilingPanel";
+import DocumentSourceViewer, { type SourceField } from "@/components/iip/DocumentSourceViewer";
 import { useDocumentExtraction } from "@/lib/documentExtraction";
 import { isValidWorkReference } from "@/lib/workItemLinks";
 
@@ -92,6 +93,38 @@ export default function DocumentExtraction() {
   }, [preview, selected]);
 
   const dirtyFields = useMemo(() => selected?.fields.filter((field) => values[field.name] !== field.effectiveValue) ?? [], [selected, values]);
+
+  // The page and the field list light each other up: what is hovered anywhere wins, else the field being edited.
+  const [hoveredField, setHoveredField] = useState<string | null>(null);
+  const [pinnedField, setPinnedField] = useState<string | null>(null);
+  const [scrollToField, setScrollToField] = useState<string | null>(null);
+  const activeField = hoveredField ?? pinnedField;
+  useEffect(() => {
+    setHoveredField(null);
+    setPinnedField(null);
+    setScrollToField(null);
+  }, [selectedId]);
+  useEffect(() => {
+    if (hoveredField === null) setScrollToField(null);
+  }, [hoveredField]);
+  const sourceFields = useMemo<SourceField[]>(
+    () => (selected?.fields ?? []).map((field) => ({
+      name: field.name,
+      label: documentFieldLabel(field.name),
+      confidence: field.confidenceScore ?? null,
+      box: field.boundingBox ?? null,
+    })),
+    [selected],
+  );
+  function focusFieldInput(name: string) {
+    setPinnedField(name);
+    showCompactPanel("review");
+    window.requestAnimationFrame(() => {
+      const input = reviewPanelRef.current?.querySelector<HTMLElement>(`[data-testid="extracted-field"][data-field="${CSS.escape(name)}"] input`);
+      input?.focus();
+      input?.scrollIntoView({ block: "nearest" });
+    });
+  }
   const allowed = (action: string) => selected?.allowedActions.some((candidate) => candidate.action === action) ?? false;
   const blockedReason = (action: string) => selected?.blockedActions.find((candidate) => candidate.action === action)?.reason;
 
@@ -236,12 +269,18 @@ export default function DocumentExtraction() {
                 SHA-256 <span className="font-mono">{selected.sha256}</span>
               </p>
             )}
-            <div className="min-h-[560px] overflow-hidden rounded-dls-card border border-dls-border-subtle bg-dls-bg-page">
-              {previewState.url && previewState.contentType?.startsWith("image/") ? <img src={previewState.url} alt={`Authorized preview of ${selected.originalFileName}`} className="mx-auto max-h-[760px] w-full object-contain" /> : null}
-              {previewState.url && previewState.contentType === "application/pdf" ? <iframe title={`Authorized preview of ${selected.originalFileName}`} src={previewState.url} className="h-[680px] w-full bg-dls-surface" /> : null}
-              {!previewState.url ? <div className="grid min-h-[560px] place-items-center p-8 text-center"><div><FileText className="mx-auto h-8 w-8 text-dls-text-muted" aria-hidden="true" /><div className="mt-3 text-[13px] font-bold text-dls-text-primary">{previewState.error ? "Source preview unavailable" : "Loading authorized source preview…"}</div><div className="mt-1 max-w-md text-[11.5px] leading-5 text-dls-text-muted">{previewState.error ?? "This preview comes from your own workspace’s documents."}</div></div></div> : null}
-            </div>
-            <div className="mt-3 flex items-start gap-2 rounded-dls-card border border-dls-border-subtle bg-dls-surface p-3 text-[11.5px] leading-5 text-dls-text-muted"><ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0 text-dls-info-text" aria-hidden="true" /> Source-coordinate highlighting will appear when the configured extraction provider returns page geometry. IIP does not invent coordinates when they are absent.</div>
+            <DocumentSourceViewer
+              url={previewState.url}
+              contentType={previewState.contentType}
+              fileName={selected.originalFileName}
+              error={previewState.error}
+              fields={sourceFields}
+              activeField={activeField}
+              scrollToField={scrollToField}
+              onActiveChange={(name) => setHoveredField(name)}
+              onSelect={focusFieldInput}
+            />
+            <div className="mt-3 flex items-start gap-2 rounded-dls-card border border-dls-border-subtle bg-dls-surface p-3 text-[11.5px] leading-5 text-dls-text-muted"><ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0 text-dls-info-text" aria-hidden="true" /> Outlines come from the page positions the extraction provider returned. IIP does not invent positions when they are absent.</div>
           </GlassCard>
           </div>
 
@@ -274,9 +313,17 @@ export default function DocumentExtraction() {
             <GlassCard>
               <div className="mb-3 flex items-center justify-between"><div className="text-[11px] font-bold uppercase tracking-[0.05em] text-dls-text-muted">Extracted fields · {selected.fields.length}</div>{dirtyFields.length > 0 ? <Badge tone="warning">{dirtyFields.length} unsaved</Badge> : <Badge tone="success">Values synchronized</Badge>}</div>
               <div className="max-h-[560px] space-y-2.5 overflow-y-auto pr-1">
-                {selected.fields.map((field) => <div key={field.name} className={`rounded-dls-card border px-3 py-2.5 ${values[field.name] !== field.effectiveValue ? "border-dls-warning-dot bg-dls-warning-tint" : "border-dls-border-subtle bg-dls-surface"}`}>
-                  <div className="mb-1 flex items-center justify-between gap-2"><div className="text-[11px] text-dls-text-muted">{documentContractLabel(field.name)}</div>{typeof field.confidenceScore === "number" ? <ConfidenceBadge value={field.confidenceScore} /> : <Badge tone="neutral">Confidence unavailable</Badge>}</div>
-                  <input aria-label={documentContractLabel(field.name)} value={values[field.name] ?? ""} onChange={(event) => setValues((current) => ({ ...current, [field.name]: event.target.value }))} disabled={!allowed("correctDocumentExtraction")} className="min-h-11 w-full bg-transparent text-[13px] text-dls-text-primary outline-none disabled:text-dls-text-muted" />
+                {selected.fields.map((field) => <div
+                  key={field.name}
+                  data-testid="extracted-field"
+                  data-field={field.name}
+                  data-active={activeField === field.name ? "true" : undefined}
+                  onMouseEnter={() => { setHoveredField(field.name); if (field.boundingBox) setScrollToField(field.name); }}
+                  onMouseLeave={() => setHoveredField(null)}
+                  className={`rounded-dls-card border px-3 py-2.5 transition-colors duration-dls-fast ease-dls ${activeField === field.name ? "border-dls-primary bg-dls-primary-soft" : values[field.name] !== field.effectiveValue ? "border-dls-warning-dot bg-dls-warning-tint" : "border-dls-border-subtle bg-dls-surface"}`}
+                >
+                  <div className="mb-1 flex items-center justify-between gap-2"><div className="text-[11px] text-dls-text-muted">{documentFieldLabel(field.name)}<span className="ml-2">{field.boundingBox ? `Page ${field.boundingBox.pageNumber}` : "Not located on the page"}</span></div>{typeof field.confidenceScore === "number" ? <ConfidenceBadge value={field.confidenceScore} /> : <Badge tone="neutral">Confidence unavailable</Badge>}</div>
+                  <input aria-label={documentFieldLabel(field.name)} value={values[field.name] ?? ""} onChange={(event) => setValues((current) => ({ ...current, [field.name]: event.target.value }))} onFocus={() => { setPinnedField(field.name); if (field.boundingBox) setScrollToField(field.name); }} disabled={!allowed("correctDocumentExtraction")} className="min-h-11 w-full bg-transparent text-[13px] text-dls-text-primary outline-none disabled:text-dls-text-muted" />
                   {field.warnings.map((warning) => <div key={warning.code} className="mt-1 flex items-start gap-1 text-[10.5px] text-dls-warning-text"><TriangleAlert className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" /> {warning.message}</div>)}
                 </div>)}
                 {selected.fields.length === 0 ? <div className="rounded-dls-card border border-dashed border-dls-border-subtle p-8 text-center text-[12px] text-dls-text-muted">No structured fields were returned by the configured provider.</div> : null}

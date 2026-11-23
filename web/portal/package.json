@@ -27,7 +27,9 @@
     "start": "next start",
     "lint": "next lint",
     "test:visual": "playwright test -c tests/visual/playwright.config.ts",
-    "test:workspace": "playwright test -c playwright.workspace.config.ts"
+    "test:workspace": "playwright test -c playwright.workspace.config.ts",
+    "test:documents": "playwright test -c playwright.documents.config.ts",
+    "test:agent": "playwright test -c playwright.agent.config.ts"
   },
   "dependencies": {
     "@azure/msal-browser": "^5.14.0",
@@ -37,6 +39,7 @@
     "jspdf": "^4.2.1",
     "lucide-react": "^1.16.0",
     "next": "^15.0.0",
+    "pdfjs-dist": "6.4.299",
     "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

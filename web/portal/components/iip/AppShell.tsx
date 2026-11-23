@@ -1,4 +1,6 @@
 "use client";
+import LiveVoiceProvider from "@/components/iip/LiveVoiceProvider";
+import NudgeBar from "@/components/iip/NudgeBar";
 import { useLocation, Navigate } from "@/components/iip/NextRouterCompat";
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
@@ -201,6 +203,7 @@ function ShellInner({ children }: { children: ReactNode }) {
           </div>
         </div>
       </div>
+      <NudgeBar />
     </div>
   );
 }
@@ -224,7 +227,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
   return (
     <UIStateProvider>
       <RuntimeContextProvider>
-        <ShellInner>{children}</ShellInner>
+        <LiveVoiceProvider>
+          <ShellInner>{children}</ShellInner>
+        </LiveVoiceProvider>
       </RuntimeContextProvider>
     </UIStateProvider>
   );

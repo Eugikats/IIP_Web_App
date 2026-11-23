@@ -39,7 +39,8 @@ public sealed class CommandCenterAnalyst(
     IChannelReadRepository channels,
     IToolCallingChatProvider? chat = null,
     InsuranceIntelligence.Application.Billing.IAiCreditGate? creditGate = null,
-    TimeProvider? clock = null) : ICommandCenterAnalyst
+    TimeProvider? clock = null,
+    IAgentProgress? progress = null) : ICommandCenterAnalyst
 {
     private const int MaxModelSteps = 5;
 
@@ -168,21 +169,50 @@ public sealed class CommandCenterAnalyst(
         var tools = ToolSpecs(available);
         for (var step = 0; step < MaxModelSteps; step++)
         {
+            progress?.Report("step", step == 0 ? "Reading your question" : "Checking what the figures say");
             var next = await chat!.NextAsync(messages, tools, correlationId, cancellationToken);
             if (next.ToolCalls.Count == 0)
             {
+                progress?.Report("step", "Writing the answer");
                 return next.Content;
             }
 
             messages.Add(AgentChatMessage.Assistant(next.Content, next.ToolCalls));
             foreach (var call in next.ToolCalls)
             {
+                if (progress is { IsWatched: true })
+                {
+                    progress.Report("tool", DescribeCall(call));
+                }
+
                 var result = await RunToolAsync(call, available, now, offset, produced, touched, cancellationToken);
                 messages.Add(AgentChatMessage.Tool(call.Id, result));
             }
         }
 
         return null;
+    }
+
+    /// <summary>What a tool call does, in plain words, for the person watching the agent work.</summary>
+    private static string DescribeCall(AgentToolCall call)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(call.ArgumentsJson) ? "{}" : call.ArgumentsJson);
+            var args = doc.RootElement;
+            var records = Str(args, "entity")?.Replace('_', ' ') ?? "records";
+            return call.Name switch
+            {
+                "count_records" => $"Counting {records}" + (Str(args, "period") is { } p && p != "all_time" ? $" ({p.Replace('_', ' ')})" : string.Empty),
+                "daily_series" => $"Charting {records} day by day",
+                "breakdown" => $"Grouping {records}" + (Str(args, "by") is { } by ? $" by {by.Replace('_', ' ')}" : string.Empty),
+                _ => "Looking at your records",
+            };
+        }
+        catch (JsonException)
+        {
+            return "Looking at your records";
+        }
     }
 
     private async Task<string> RunToolAsync(

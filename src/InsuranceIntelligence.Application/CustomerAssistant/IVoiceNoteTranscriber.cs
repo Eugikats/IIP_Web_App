@@ -18,3 +18,16 @@ public interface IVoiceNoteTranscriber
     Task<string?> TranscribeAsync(
         TenantScope scope, string mediaId, SupportedLanguageCode? preferredLanguage, string? businessPhoneNumberId = null, CancellationToken cancellationToken = default);
 }
+
+/// <summary>
+/// Turns a staff member's own recording (made in the portal or the IIP app) into text. The words become a
+/// question to the agent exactly as if they had been typed: they are read, shown back, and never act alone.
+/// </summary>
+public interface IStaffVoiceTranscriber
+{
+    Task<bool> IsStaffTranscriptionAvailableAsync(TenantScope scope, CancellationToken cancellationToken = default);
+
+    /// <summary>The words in the recording, or null when it could not be understood (no engine, engine failed, silence).</summary>
+    Task<string?> TranscribeAudioAsync(
+        TenantScope scope, byte[] audio, string? contentType, SupportedLanguageCode? preferredLanguage, CancellationToken cancellationToken = default);
+}

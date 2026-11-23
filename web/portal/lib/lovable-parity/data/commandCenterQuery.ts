@@ -50,6 +50,39 @@ type QueryResponseDto = {
   snapshotId?: string;
 };
 
+/** One thing the agent is doing, as the server reported it. "tool" steps are reads of the person's records. */
+export type AgentStepView = { kind: "step" | "tool"; label: string };
+
+/** Reads a server-sent event stream into its events. Exported for the tests. */
+export async function* readEventStream(body: ReadableStream<Uint8Array>): AsyncGenerator<{ event: string; data: unknown }> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      buffer += decoder.decode(value, { stream: !done }).replace(/\r\n/g, "\n");
+      let split: number;
+      while ((split = buffer.indexOf("\n\n")) >= 0) {
+        const raw = buffer.slice(0, split);
+        buffer = buffer.slice(split + 2);
+        let event = "message";
+        const data: string[] = [];
+        for (const line of raw.split("\n")) {
+          if (line.startsWith("event:")) event = line.slice(6).trim();
+          else if (line.startsWith("data:")) data.push(line.slice(5).trimStart());
+        }
+        if (data.length > 0) {
+          try { yield { event, data: JSON.parse(data.join("\n")) }; } catch { /* a malformed event is skipped, never shown */ }
+        }
+      }
+      if (done) return;
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 export type CommandCenterQueryResult =
   | { ok: true; answer: CommandCenterAnswer }
   | { ok: false; kind: "unauthorized" | "reconcile"; message: string };
@@ -60,12 +93,14 @@ export function useCommandCenterQuery() {
   const [answer, setAnswer] = useState<CommandCenterAnswer | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [steps, setSteps] = useState<AgentStepView[]>([]);
 
   const ask = useCallback(async (question: string, conversationId?: string, clientRequestId?: string): Promise<CommandCenterQueryResult> => {
     const q = question.trim();
     if (!q) return { ok: false, kind: "reconcile", message: "Enter a question before sending." };
     setLoading(true);
     setError(null);
+    setSteps([]);
     if (LOVABLE_VISUAL_PARITY_MODE) {
       const parity = buildSyntheticCommandCenterAnswer(q);
       setAnswer(parity);
@@ -73,18 +108,47 @@ export function useCommandCenterQuery() {
       return { ok: true, answer: parity };
     }
     try {
-      const response = await fetch(`${apiBaseUrl}/api/v1/command-center/query`, {
+      const init: RequestInit = {
         method: "POST",
         headers: { ...scopedHeaders(role, ""), "Content-Type": "application/json" },
         body: JSON.stringify({ question: q, conversationId: conversationId || null, clientRequestId: clientRequestId || null, timeZoneOffsetMinutes: -new Date().getTimezoneOffset() }),
-      });
+      };
+      // The stream shows each step as the agent takes it. A server without the stream answers the same
+      // question through the plain endpoint, so a person never loses the answer for lack of the live view.
+      let response = await fetch(`${apiBaseUrl}/api/v1/command-center/query/stream`, init);
+      if (response.status === 404 || response.status === 405) {
+        response = await fetch(`${apiBaseUrl}/api/v1/command-center/query`, init);
+      }
       if (response.status === 403) {
         const message = "You do not have permission to query the Command Center.";
         setError(message);
         return { ok: false, kind: "unauthorized", message };
       }
       if (!response.ok) throw new Error(`Command Center query failed.`);
-      const dto = (await response.json()) as QueryResponseDto;
+      let dto: QueryResponseDto;
+      if ((response.headers.get("content-type") ?? "").includes("text/event-stream") && response.body) {
+        let received: QueryResponseDto | null = null;
+        for await (const { event, data } of readEventStream(response.body)) {
+          if (event === "step" || event === "tool") {
+            const label = (data as { label?: string }).label;
+            if (label) setSteps((current) => [...current, { kind: event, label }]);
+          } else if (event === "answer") {
+            received = data as QueryResponseDto;
+          } else if (event === "error") {
+            const failure = data as { code?: string; message?: string };
+            if (failure.code === "forbidden") {
+              const message = "You do not have permission to query the Command Center.";
+              setError(message);
+              return { ok: false, kind: "unauthorized", message };
+            }
+            throw new Error(failure.message ?? "Command Center query failed.");
+          }
+        }
+        if (!received) throw new Error("Command Center query ended without an answer.");
+        dto = received;
+      } else {
+        dto = (await response.json()) as QueryResponseDto;
+      }
       const result: CommandCenterAnswer = {
         question: q,
         blocks: dto.blocks ?? [],
@@ -111,5 +175,5 @@ export function useCommandCenterQuery() {
 
   const reset = useCallback(() => { setAnswer(null); setError(null); }, []);
 
-  return { ask, reset, answer, loading, error, parityMode: LOVABLE_VISUAL_PARITY_MODE };
+  return { ask, reset, answer, loading, error, steps, parityMode: LOVABLE_VISUAL_PARITY_MODE };
 }

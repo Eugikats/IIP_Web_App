@@ -138,6 +138,40 @@ public sealed class CommandCenterAnalystTests
     }
 
     [Fact]
+    public async Task A_watcher_sees_the_steps_the_agent_really_took_in_order()
+    {
+        var progress = new AgentProgress();
+        var reader = progress.Open();
+        var chat = new ScriptedChat(
+            new AgentChatStep(null, [new AgentToolCall("t1", "count_records", """{"entity":"prospects","period":"today"}""")]),
+            new AgentChatStep("Two prospects came in today.", []));
+        var analyst = Analyst([Lead("L1", Now), Lead("L2", Now)], chat, progress: progress);
+
+        await analyst.AnswerAsync("How many prospects today?", Kampala, "c-6");
+        progress.Complete();
+
+        var steps = new List<AgentStep>();
+        await foreach (var step in reader.ReadAllAsync()) steps.Add(step);
+        Assert.Equal(
+            ["Reading your question", "Counting prospects (today)", "Checking what the figures say", "Writing the answer"],
+            steps.Select(step => step.Label));
+        Assert.Equal(["step", "tool", "step", "step"], steps.Select(step => step.Kind));
+        Assert.DoesNotContain(steps, step => step.Label.Contains((char)0x2014));
+    }
+
+    [Fact]
+    public async Task Nothing_is_reported_when_nobody_is_watching()
+    {
+        var progress = new AgentProgress();
+        var chat = new ScriptedChat(new AgentChatStep("None.", []));
+        var analyst = Analyst([], chat, progress: progress);
+
+        await analyst.AnswerAsync("How many prospects today?", Kampala, "c-7");
+
+        Assert.False(progress.IsWatched);
+    }
+
+    [Fact]
     public async Task A_failing_model_falls_back_to_the_counts()
     {
         var analyst = Analyst([Lead("L1", Now)], new ScriptedChat(throwOnCall: true));
@@ -184,9 +218,10 @@ public sealed class CommandCenterAnalystTests
     private static CommandCenterAnalyst Analyst(
         IReadOnlyList<SalesLeadDetailReadModel> leads,
         IToolCallingChatProvider? chat = null,
-        IPermissionService? permissions = null) =>
+        IPermissionService? permissions = null,
+        IAgentProgress? progress = null) =>
         new(new FixedContext(), permissions ?? new Only(Permission.ViewSalesLeads, Permission.ViewAllClaims, Permission.ViewCustomers, Permission.ViewChannels),
-            new Leads(leads), new NoCases(), new NoCustomers(), new NoChannels(), chat, clock: new FixedClock(Now));
+            new Leads(leads), new NoCases(), new NoCustomers(), new NoChannels(), chat, clock: new FixedClock(Now), progress: progress);
 
     // The analyst reads "today" from a clock; the records and expectations here are dated 9 October, so the
     // clock is held there. Without it these tests only passed on the day they were written.

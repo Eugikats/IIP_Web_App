@@ -278,6 +278,14 @@ public static class DocumentMapper
         return null;
     }
 
+    private static BoundingBoxResponse ToBoxResponse(BoundingBox box) =>
+        new(
+            box.PageNumber, box.X, box.Y, box.Width, box.Height,
+            box.Polygon,
+            box.Parts is { Count: > 1 } parts
+                ? parts.Where(DocumentGeometry.IsPageFraction).Select(ToBoxResponse).ToArray()
+                : null);
+
     public static bool IsFieldExposed(string fieldName)
     {
         var normalized = NormalizeFieldName(fieldName);
@@ -310,10 +318,13 @@ public static class DocumentMapper
                     .ToArray();
 
                 BoundingBoxResponse? boundingBox = null;
+                // Boxes saved before page scaling hold inches or pixels; they are not sent, so the screen
+                // shows no highlight instead of a wrong one.
                 if (document.Extraction.FieldBoundingBoxes is not null
-                    && document.Extraction.FieldBoundingBoxes.TryGetValue(field.Key, out var bb))
+                    && document.Extraction.FieldBoundingBoxes.TryGetValue(field.Key, out var bb)
+                    && DocumentGeometry.IsPageFraction(bb))
                 {
-                    boundingBox = new BoundingBoxResponse(bb.PageNumber, bb.X, bb.Y, bb.Width, bb.Height);
+                    boundingBox = ToBoxResponse(bb);
                 }
 
                 return new DocumentFieldVerificationResponse(

@@ -64,6 +64,15 @@ public sealed class AzureDocumentIntelligenceProvider(InfrastructureOptions opti
         AnalyzeResult analyzeResult)
     {
         var boundingBoxes = new Dictionary<string, BoundingBox>();
+        var pageSizes = new Dictionary<int, (double Width, double Height)>();
+        foreach (var page in analyzeResult.Pages)
+        {
+            if (page.Width is > 0 && page.Height is > 0)
+            {
+                pageSizes[page.PageNumber] = (page.Width.Value, page.Height.Value);
+            }
+        }
+
         var fields = new Dictionary<string, string>();
         var confidences = new Dictionary<string, decimal>();
 
@@ -87,21 +96,10 @@ public sealed class AzureDocumentIntelligenceProvider(InfrastructureOptions opti
                 fields[fieldKey] = value;
                 confidences[fieldKey] = AzureDocumentIntelligenceMapping.NormalizeConfidence(field.Value.Confidence);
 
-                // Capture bounding box from first polygon region if available
-                var regions = field.Value.BoundingRegions;
-                if (regions is { Count: > 0 })
+                // Where the value sits on the page, scaled to the page, with every region it covers.
+                if (BoxFor(field.Value.BoundingRegions, pageSizes) is { } fieldBox)
                 {
-                    var region = regions[0];
-                    // Polygon is a flat float list: [x0,y0, x1,y1, x2,y2, x3,y3, ...]
-                    if (region.Polygon.Count >= 8)
-                    {
-                        var pts = region.Polygon;
-                        var x = (double)pts[0];
-                        var y = (double)pts[1];
-                        var w = (double)(pts[4] - pts[0]);
-                        var h = (double)(pts[5] - pts[1]);
-                        boundingBoxes[fieldKey] = new BoundingBox(region.PageNumber, x, y, Math.Abs(w), Math.Abs(h));
-                    }
+                    boundingBoxes[fieldKey] = fieldBox;
                 }
             }
         }
@@ -116,9 +114,37 @@ public sealed class AzureDocumentIntelligenceProvider(InfrastructureOptions opti
             var key = $"keyValue.{NormalizeKey(pair.Key.Content)}";
             fields[key] = pair.Value.Content;
             confidences[key] = AzureDocumentIntelligenceMapping.NormalizeConfidence(pair.Confidence);
+
+            // Most fields of a general document arrive as key-value pairs; the box is the value's own words.
+            if (BoxFor(pair.Value.BoundingRegions, pageSizes) is { } pairBox)
+            {
+                boundingBoxes[key] = pairBox;
+            }
         }
 
         return (fields, confidences, boundingBoxes);
+    }
+
+    // Azure reports polygons in the page's own unit (inches for a PDF, pixels for an image), so each one is
+    // divided by that page's size. A region on a page with no reported size is dropped, never guessed.
+    private static BoundingBox? BoxFor(IReadOnlyList<BoundingRegion>? regions, IReadOnlyDictionary<int, (double Width, double Height)> pageSizes)
+    {
+        if (regions is not { Count: > 0 })
+        {
+            return null;
+        }
+
+        var boxes = new List<BoundingBox>();
+        foreach (var region in regions)
+        {
+            if (pageSizes.TryGetValue(region.PageNumber, out var size)
+                && DocumentGeometry.FromPolygon(region.PageNumber, region.Polygon, size.Width, size.Height) is { } box)
+            {
+                boxes.Add(box);
+            }
+        }
+
+        return DocumentGeometry.Combine(boxes);
     }
 
     private static IReadOnlyCollection<DocumentValidationWarning> BuildWarnings(AnalyzeResult analyzeResult)

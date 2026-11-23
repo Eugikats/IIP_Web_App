@@ -2,14 +2,15 @@
 
 > Generated from Git-tracked documentation by `scripts/docs/Update-IipDocsCatalog.ps1`. Do not hand-edit.
 
-Total: 480 files.
+Total: 484 files.
 
-## [docs-root] (9)
+## [docs-root] (10)
 
 - [azure-text-to-speech-agent-guide.md](azure-text-to-speech-agent-guide.md)
 - [comms-api-reference.md](comms-api-reference.md)
 - [CONTEXT.md](CONTEXT.md)
 - [enterprise-agentic-ai-course-reference.md](enterprise-agentic-ai-course-reference.md)
+- [handsfree-voice-implementation.md](handsfree-voice-implementation.md)
 - [iip-academy-build-notes.md](iip-academy-build-notes.md)
 - [iip-academy-media-integration.md](iip-academy-media-integration.md)
 - [iip-academy-pricing-release.md](iip-academy-pricing-release.md)
@@ -24,7 +25,7 @@ Total: 480 files.
 - [reorganization-backlog.md](00-start-here/reorganization-backlog.md)
 - [repository-map.md](00-start-here/repository-map.md)
 
-## 01-strategy-requirements-roadmap (41)
+## 01-strategy-requirements-roadmap (43)
 
 - [azure_fixed_costs.md](01-strategy-requirements-roadmap/azure_fixed_costs.md)
 - [IIP_ACQUISITION_GAP_ANALYSIS_VS_CIP.md](01-strategy-requirements-roadmap/IIP_ACQUISITION_GAP_ANALYSIS_VS_CIP.md)
@@ -42,8 +43,10 @@ Total: 480 files.
 - [iip_implementation_roadmap.md](01-strategy-requirements-roadmap/iip_implementation_roadmap.md)
 - [IIP_INSURER_MEETING_READINESS_PLAN.md](01-strategy-requirements-roadmap/IIP_INSURER_MEETING_READINESS_PLAN.md)
 - [IIP_INSURER_READINESS_GAPS.md](01-strategy-requirements-roadmap/IIP_INSURER_READINESS_GAPS.md)
+- [IIP_INTELLIGENCE_LEAP_BUILD_PLAN.md](01-strategy-requirements-roadmap/IIP_INTELLIGENCE_LEAP_BUILD_PLAN.md)
 - [IIP_KATO_BUILD_PROMPT.md](01-strategy-requirements-roadmap/IIP_KATO_BUILD_PROMPT.md)
 - [IIP_KATO_FIELD_TEST_AUDIT.md](01-strategy-requirements-roadmap/IIP_KATO_FIELD_TEST_AUDIT.md)
+- [IIP_LIVE_VOICE_BUILD_PLAN.md](01-strategy-requirements-roadmap/IIP_LIVE_VOICE_BUILD_PLAN.md)
 - [IIP_LOCAL_LANGUAGE_BUILD_PLAN.md](01-strategy-requirements-roadmap/IIP_LOCAL_LANGUAGE_BUILD_PLAN.md)
 - [IIP_LOCAL_LANGUAGE_WHATSAPP_LOOP.md](01-strategy-requirements-roadmap/IIP_LOCAL_LANGUAGE_WHATSAPP_LOOP.md)
 - [iip_master_product_context.md](01-strategy-requirements-roadmap/iip_master_product_context.md)
@@ -522,6 +525,10 @@ Total: 480 files.
 - [IIP_INSURER_MEETING_READINESS_PLAN.md](insurer-demo/IIP_INSURER_MEETING_READINESS_PLAN.md)
 - [IIP_MULTI_INSURER_MARKETPLACE_PROPOSAL.md](insurer-demo/IIP_MULTI_INSURER_MARKETPLACE_PROPOSAL.md)
 - [INSURER_DEMO_BUILD_LOOP_PROMPT.md](insurer-demo/INSURER_DEMO_BUILD_LOOP_PROMPT.md)
+
+## Otic_Universal_Intelligence_Architecture_markdown (1)
+
+- [Otic_Universal_Intelligence_Architecture.md](Otic_Universal_Intelligence_Architecture_markdown/Otic_Universal_Intelligence_Architecture.md)
 
 ## research (16)
 
