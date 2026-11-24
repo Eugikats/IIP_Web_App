@@ -54,17 +54,29 @@ public sealed class CommandCenterQueryService(
     private const string ConversationalPromptVersion = "command-center-conversational-v1";
     private const string NoModelProvider = "None";
 
+    /// <summary>What the assistant says when a question is not about this workspace's claims, acquisition or
+    /// products (general knowledge, news, opinions). It does not answer from memory; it offers what it can do.</summary>
+    internal const string OutOfScopeReply =
+        "That one is outside what I can help with here, so I will leave it alone. I can help with:\n\n"
+        + "- **Claims:** what needs attention, what is running late, what is waiting on documents or approval\n"
+        + "- **Acquisition:** how many new people reached out, where they came from and how the pipeline is doing\n"
+        + "- **Your products:** what a policy covers, waiting periods, how to join and how to claim\n\n"
+        + "Which of these should I start with?";
+
+    /// <summary>The model is told to answer with exactly this when the excerpts it was given do not answer the question.</summary>
+    private const string NotCoveredMarker = "OUT_OF_SCOPE";
+
     // Deliberately plain. Every item is something the intent classifier can genuinely route, and
     // is phrased the way a claims officer would say it rather than the way the system stores it.
     private const string GreetingReply =
-        "Hello. I can help you with the claims work in this workspace.\n\n"
+        "Hello. I can help with your claims, with customer acquisition and with questions about your products. Where should I start?\n\n"
         + "Try asking me:\n"
         + "- What needs my attention today?\n"
-        + "- Which claims are still waiting on documents?\n"
+        + "- How many new people reached out this week?\n"
+        + "- Which claims are running late or waiting on documents?\n"
         + "- What is waiting for my approval?\n"
-        + "- Which claims are running late?\n"
         + "- What does the policy say about flood damage?\n\n"
-        + "For anything about cover, I answer only from your approved documents and show you where "
+        + "For anything about cover, I answer from your product documents and show you where "
         + "each answer came from. Decisions stay with you.";
 
     private const string CapabilitiesReply =
@@ -77,7 +89,7 @@ public sealed class CommandCenterQueryService(
         + "**Answer questions about cover**\n"
         + "- What does the policy say about flood damage?\n"
         + "- Is there a waiting period on this benefit?\n\n"
-        + "Answers about cover come only from your approved documents, with a link to the source "
+        + "Answers about cover come from your product documents, with a link to the source "
         + "for each one. If the documents do not say, I tell you that rather than guessing.\n\n"
         + "**Prepare things for you to check**\n"
         + "- Draft an update for a customer\n"
@@ -484,21 +496,26 @@ public sealed class CommandCenterQueryService(
 
         var prompt = string.Join('\n', [
             "You are an insurance operations assistant for staff at a Ugandan composite insurer.",
-            "Answer the staff question using ONLY the approved policy sources provided below.",
-            "Cite the sources you used by their bracketed number, e.g. [1].",
-            "If the sources do not contain the answer, say so plainly instead of guessing.",
+            "Answer the staff question using ONLY the policy excerpts provided below, and never from general knowledge.",
+            "Cite the excerpts you used by their bracketed number, e.g. [1]. Write naturally: do not talk about 'sources' or say that something is 'approved'.",
+            $"If the excerpts do not answer the question, reply with exactly {NotCoveredMarker} and nothing else.",
             "Do not approve, deny, settle, or repudiate any claim. Do not promise payment or admit liability.",
             "Be concise and factual. Amounts are Ugandan Shillings (UGX).",
             string.Empty,
             $"STAFF QUESTION: {question}",
             string.Empty,
-            "APPROVED POLICY SOURCES:",
+            "POLICY EXCERPTS:",
             sources
         ]);
 
         var chatResult = await chatCompletionProvider.CompleteAsync(
             new ChatCompletionRequest(prompt, context.TenantId, context.WorkspaceId, correlationId, "policy-intelligence"),
             cancellationToken);
+
+        if (chatResult.Content.Trim().StartsWith(NotCoveredMarker, StringComparison.OrdinalIgnoreCase))
+        {
+            return await BuildUngroundedPolicyAnswerAsync(question, context, correlationId, now, cancellationToken);
+        }
 
         var blocks = new List<CommandCenterResponseBlock>
         {
@@ -558,11 +575,7 @@ public sealed class CommandCenterQueryService(
     {
         var blocks = new CommandCenterResponseBlock[]
         {
-            new TextBlock(
-                "I could not find an approved knowledge source covering that question, so I have not answered it. "
-                + "IIP only answers policy questions from approved, indexed policy documents. "
-                + "A Knowledge Manager can upload and approve the relevant policy wording in Knowledge Base, "
-                + "after which this question can be answered with citations.")
+            new TextBlock(OutOfScopeReply)
         };
 
         var actionLog = new AgentActionLog
@@ -575,7 +588,7 @@ public sealed class CommandCenterQueryService(
             AssistantMode = AssistantMode.PolicyQnA,
             InputSummary = SummarizeInput(question),
             RetrievedSources = Array.Empty<SourceCitation>(),
-            ModelOutput = "No approved knowledge source matched the question; no answer generated.",
+            ModelOutput = "The question is not about this workspace or its product documents; no answer generated.",
             ConfidenceScore = AiConfidenceScore.Create(0m),
             RiskFlag = "none",
             HumanOverride = false,

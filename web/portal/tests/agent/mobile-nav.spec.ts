@@ -117,3 +117,12 @@ test("on a phone no main screen scrolls sideways", async ({ page }) => {
     expect(await sideways(page), `${path} scrolls sideways`).toBeLessThanOrEqual(0);
   }
 });
+
+test("the message box shows focus once, on the pill, not as a second blue rectangle around the field", async ({ page }) => {
+  await open(page, "/app/workspace");
+  const field = page.getByRole("textbox", { name: "Message Kato" });
+  await field.click();
+  await expect(field).toBeFocused();
+  const shadow = await field.evaluate((element) => getComputedStyle(element).boxShadow);
+  expect(shadow).toBe("none");
+});

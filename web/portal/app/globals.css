@@ -324,6 +324,14 @@ textarea:focus-visible {
    deliberately unlayered (like the block above) so it wins over the `@tailwind utilities` layer;
    Tailwind's `focus-visible:outline-*` utilities alone cannot override the block above because
    Tailwind utilities live in a lower-priority CSS cascade layer regardless of selector specificity. */
+/* A field that sits inside a container which already shows the focus (the message box pill uses
+   focus-within), so the field must not draw a second blue rectangle inside it. Unlayered for the
+   same reason as the rule above. */
+.dls-field-in-focus-container:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
 .dls-focus-outline:focus-visible {
   outline: 2px solid rgb(var(--color-primary));
   outline-offset: 2px;

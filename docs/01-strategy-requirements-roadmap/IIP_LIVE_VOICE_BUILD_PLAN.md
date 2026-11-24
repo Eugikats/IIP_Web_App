@@ -49,6 +49,14 @@ Built in one pass, locally verified, **not deployed**. The Azure resource exists
 
 `Voice__Live__Endpoint` = `https://ais-iip-dev-h5girbnzrayqe.services.ai.azure.com`, `Voice__Live__Model`, `Voice__Live__ApiVersion`; optional `Voice__Live__SpeechEndpoint` (the Azure Speech host for the "Hey Kato" check; derived from the endpoint above when unset, and needs the API identity to hold a Cognitive Services Speech role on the resource), `Voice__Limits__*` and `Voice__Nudges__*`. Turn off key authentication on the resource only after the first keyless call succeeds.
 
+## 1b. Behaviour changes after the first phone test (2026-11-24)
+
+- **Grounding.** The voice instructions in `VoiceSessionBroker.VoiceInstructions` now say the agent helps only with this workspace (claims, acquisition, customers, approvals, documents, the insurer's products) and declines general knowledge, politics and news even when it knows the answer, offering what it can do instead. A phone test had answered "who is the president of Uganda".
+- **Speaks first.** On a new conversation the broker sends a system note and `response.create` about 1.8 seconds after the answer is returned (`OpenAsync`), so the agent greets, asks the analyst "what needs my attention today" and "how many new prospects came in over the past 3 days", and offers where to start. Carrying on an earlier chat, or reconnecting, does not greet again.
+- **Fillers.** The agent is told to say a few varied words ("let me pull that up") before every tool call so a lookup is never silent.
+- **Android.** The call service starts only once the microphone is granted (Android 14 and later kill the app otherwise); see `android/README.md`.
+- **Not done:** the spoken words of the person are not stored as questions in the written conversation; `ask_analyst` is told to pass their own words, and the saved question is that text.
+
 ## 2. Decisions the owner takes before the phases that need them
 
 | # | Decision | Needed by | Recommendation |

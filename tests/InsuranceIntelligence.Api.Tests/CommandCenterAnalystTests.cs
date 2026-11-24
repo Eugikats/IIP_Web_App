@@ -38,9 +38,45 @@ public sealed class CommandCenterAnalystTests
     }
 
     [Theory]
+    [InlineData("How many new people have reached out over the past 3 days?", AnalyticsEntity.Prospects, "last_3_days", false)]
+    [InlineData("What is the current status of customer acquisition efforts?", AnalyticsEntity.Prospects, "last_7_days", true)]
+    [InlineData("How are claims doing this week?", AnalyticsEntity.Claims, "this_week", true)]
+    [InlineData("how many enquiries in the last two days", AnalyticsEntity.Prospects, "last_2_days", false)]
+    public void Reads_the_questions_staff_actually_ask(string question, AnalyticsEntity entity, string period, bool series)
+    {
+        var parsed = CommandCenterAnalytics.Parse(question);
+
+        Assert.NotNull(parsed);
+        Assert.Equal(entity, parsed!.Entity);
+        Assert.Equal(period, parsed.Period);
+        Assert.Equal(series, parsed.WantsSeries);
+    }
+
+    [Fact]
+    public void A_last_n_days_period_counts_those_calendar_days_and_compares_with_the_days_before()
+    {
+        var records = new[]
+        {
+            At(new DateTimeOffset(2026, 10, 9, 9, 0, 0, Kampala)),
+            At(new DateTimeOffset(2026, 10, 8, 9, 0, 0, Kampala)),
+            At(new DateTimeOffset(2026, 10, 7, 9, 0, 0, Kampala)),
+            At(new DateTimeOffset(2026, 10, 6, 9, 0, 0, Kampala)),   // before the window
+            At(new DateTimeOffset(2026, 10, 5, 9, 0, 0, Kampala)),
+        };
+
+        var count = CommandCenterAnalytics.Count(AnalyticsEntity.Prospects, records, "last_3_days", Now, Kampala);
+
+        Assert.Equal(3, count.Count);
+        Assert.Equal(2, count.PreviousCount);
+        Assert.Equal("the last 3 days", count.PeriodLabel);
+    }
+
+    [Theory]
     [InlineData("What needs my attention today?")]
     [InlineData("What does the policy say about flood damage?")]
     [InlineData("Draft an update for the customer on claim 12")]
+    [InlineData("What is the status of claim CLM-726E3445?")]
+    [InlineData("Who is the president of Uganda?")]
     public void Leaves_other_questions_to_the_rest_of_the_command_center(string question)
     {
         Assert.Null(CommandCenterAnalytics.Parse(question));

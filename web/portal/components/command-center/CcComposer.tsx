@@ -88,7 +88,7 @@ export default function CcComposer({
           placeholder={transcribing ? "Reading your voice note" : placeholder}
           disabled={disabled || transcribing}
           maxLength={2000}
-          className="min-w-0 flex-1 truncate border-0 bg-transparent py-2.5 text-[14px] text-[#0B1640] outline-none placeholder:truncate placeholder:text-slate-400 disabled:opacity-60 max-sm:order-first max-sm:basis-full max-sm:px-2 max-sm:pb-2 max-sm:pt-3 max-sm:text-[16px]"
+          className="dls-field-in-focus-container min-w-0 flex-1 truncate border-0 bg-transparent py-2.5 text-[14px] text-[#0B1640] outline-none placeholder:truncate placeholder:text-slate-400 disabled:opacity-60 max-sm:order-first max-sm:basis-full max-sm:px-2 max-sm:pb-2 max-sm:pt-3 max-sm:text-[16px]"
           aria-label={ariaLabel}
         />
         {recording && voice ? (

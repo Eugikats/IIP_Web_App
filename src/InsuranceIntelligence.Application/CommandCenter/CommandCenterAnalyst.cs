@@ -335,7 +335,7 @@ public sealed class CommandCenterAnalyst(
         var records = await LoadAsync(entity, cancellationToken);
         var points = CommandCenterAnalytics.Breakdown(records, by, period, now, offset);
         touched.Add(entity);
-        var (_, _, label, _, _) = CommandCenterAnalytics.Resolve(CommandCenterAnalytics.Periods.Contains(period) ? period : "all_time", now, offset);
+        var (_, _, label, _, _) = CommandCenterAnalytics.Resolve(CommandCenterAnalytics.IsPeriod(period) ? period : "all_time", now, offset);
         var noun = CommandCenterAnalytics.Noun(entity, 2);
         produced.Add(new ChartBlock($"{Capitalise(noun)} by {by}, {label}", "bar", points, noun));
         return points;
@@ -401,7 +401,7 @@ public sealed class CommandCenterAnalyst(
     private static IReadOnlyList<AgentToolSpec> ToolSpecs(IReadOnlyList<AnalyticsEntity> available)
     {
         var entityEnum = available.Select(e => e.ToString().ToLowerInvariant()).ToArray();
-        var periods = CommandCenterAnalytics.Periods.ToArray();
+        var periodHelp = "One of: " + string.Join(", ", CommandCenterAnalytics.Periods) + ", or last_N_days for any N from 2 to 90, for example last_3_days.";
         return
         [
             new AgentToolSpec(
@@ -413,7 +413,7 @@ public sealed class CommandCenterAnalyst(
                     properties = new
                     {
                         entity = new { type = "string", @enum = entityEnum },
-                        period = new { type = "string", @enum = periods },
+                        period = new { type = "string", description = periodHelp },
                     },
                     required = new[] { "entity", "period" },
                 }),
@@ -440,7 +440,7 @@ public sealed class CommandCenterAnalyst(
                     {
                         entity = new { type = "string", @enum = entityEnum },
                         by = new { type = "string", @enum = new[] { "source", "stage", "product", "channel", "status" } },
-                        period = new { type = "string", @enum = periods },
+                        period = new { type = "string", description = periodHelp },
                     },
                     required = new[] { "entity", "by" },
                 }),

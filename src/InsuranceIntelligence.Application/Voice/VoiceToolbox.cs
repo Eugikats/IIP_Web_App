@@ -53,7 +53,7 @@ public sealed partial class VoiceToolbox(IVoiceScopeFactory scopes)
     [
         Tool("ask_analyst",
             "Ask the workspace analyst a question about claims, prospects, approvals, documents or any figure. Use it for every fact about the workspace. Never state a figure that did not come from this tool.",
-            Params(("question", "The question in plain words, with the date range if the person gave one.")), "question"),
+            Params(("question", "The person's own question, in their own words as closely as you can, with the date range if they gave one.")), "question"),
         Tool("make_visual",
             "Show the person a chart or table for a question. The visual appears on their screen; say one sentence about what it shows.",
             Params(("question", "What to chart or tabulate, for example claims received each day this week.")), "question"),

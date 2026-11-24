@@ -41,6 +41,17 @@ public static class CommandCenterAnalytics
     public static readonly IReadOnlyList<string> Periods =
         ["today", "yesterday", "this_week", "last_7_days", "last_30_days", "this_month", "last_month", "all_time"];
 
+    private static readonly Regex LastDaysPattern = new(@"^last_(\d{1,2})_days$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    /// <summary>A named period, or "last_N_days" for N from 2 to 90 ("the past 3 days").</summary>
+    public static bool IsPeriod(string? period) => period is not null && (Periods.Contains(period) || LastDays(period) is not null);
+
+    private static int? LastDays(string period)
+    {
+        var match = LastDaysPattern.Match(period);
+        return match.Success && int.TryParse(match.Groups[1].Value, out var days) && days is >= 2 and <= 90 ? days : null;
+    }
+
     public static readonly IReadOnlyDictionary<AnalyticsEntity, IReadOnlyList<string>> Dimensions =
         new Dictionary<AnalyticsEntity, IReadOnlyList<string>>
         {
@@ -77,6 +88,11 @@ public static class CommandCenterAnalytics
     {
         var local = now.ToOffset(offset);
         var todayStart = new DateTimeOffset(local.Year, local.Month, local.Day, 0, 0, 0, offset);
+        if (LastDays(period) is { } lastDays)
+        {
+            return (todayStart.AddDays(1 - lastDays), todayStart.AddDays(1), $"the last {lastDays} days", todayStart.AddDays(1 - 2 * lastDays), $"the {lastDays} days before");
+        }
+
         switch (period)
         {
             case "today":
@@ -113,7 +129,7 @@ public static class CommandCenterAnalytics
     public static AnalyticsCount Count(
         AnalyticsEntity entity, IReadOnlyList<AnalyticsRecord> records, string period, DateTimeOffset now, TimeSpan offset)
     {
-        period = Periods.Contains(period) ? period : "all_time";
+        period = IsPeriod(period) ? period : "all_time";
         var dated = records.Count == 0 || records.Any(r => r.At is not null);
         var (start, end, label, prevStart, prevLabel) = Resolve(period, now, offset);
 
@@ -158,7 +174,7 @@ public static class CommandCenterAnalytics
     public static IReadOnlyList<ChartPoint> Breakdown(
         IReadOnlyList<AnalyticsRecord> records, string dimension, string period, DateTimeOffset now, TimeSpan offset)
     {
-        var (start, end, _, _, _) = Resolve(Periods.Contains(period) ? period : "all_time", now, offset);
+        var (start, end, _, _, _) = Resolve(IsPeriod(period) ? period : "all_time", now, offset);
         return records
             .Where(r => start is null || (r.At >= start && r.At < end))
             .GroupBy(r => r.Dimensions.TryGetValue(dimension, out var value) && !string.IsNullOrWhiteSpace(value) ? value : "Not recorded")
@@ -215,15 +231,28 @@ public static class CommandCenterAnalytics
         @"\b(how many|how much|number of|count|total|increase|decrease|grew|growth|trend|chart|graph|plot|compare|comparison|percent|percentage|breakdown|broken down|by status|by source|by product|by stage|by channel|per day|daily|weekly|so far|statistics|stats)\b|%",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
+    /// <summary>Softer ways of asking for a figure ("what is the status of acquisition", "how many reached out").
+    /// They count only when the question is about a whole area, not one named claim.</summary>
+    private static readonly string[] DayWords = ["two", "three", "four", "five", "six", "seven"];
+
+    private static readonly Regex SoftSignal = new(
+        @"\b(status|progress|performance|overview|doing|reach(ed)? out|came in|come in|contacted us)\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
+    private static readonly Regex SpecificRecord = new(
+        @"\bclm-[0-9a-z]+|\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
     /// <summary>Reads what a question asks for, or returns null when it is not a counting question.
     /// The model, when present, is still free to call the tools differently.</summary>
     public static AnalyticsQuestion? Parse(string question)
     {
-        if (string.IsNullOrWhiteSpace(question) || !AnalyticSignal.IsMatch(question)) return null;
+        if (string.IsNullOrWhiteSpace(question)
+            || !(AnalyticSignal.IsMatch(question) || (SoftSignal.IsMatch(question) && !SpecificRecord.IsMatch(question)))) return null;
         var q = question.ToLowerInvariant();
 
         AnalyticsEntity? entity =
-            Regex.IsMatch(q, @"\b(acquir\w*|acquisition|prospects?|leads?|sign[- ]?ups?|signed up|new customers?)\b") ? AnalyticsEntity.Prospects
+            Regex.IsMatch(q, @"\b(acquir\w*|acquisition|prospects?|leads?|sign[- ]?ups?|signed up|new customers?|new people|reach(ed)? out|came in|come in|contacted us|enquir\w*|inquir\w*)\b") ? AnalyticsEntity.Prospects
             : Regex.IsMatch(q, @"\bclaims?\b") ? AnalyticsEntity.Claims
             : Regex.IsMatch(q, @"\b(conversations?|chats?|messages?|whatsapp|inbox)\b") ? AnalyticsEntity.Conversations
             : Regex.IsMatch(q, @"\bcustomers?\b") ? AnalyticsEntity.Customers
@@ -235,16 +264,19 @@ public static class CommandCenterAnalytics
             : q.Contains("today") ? "today"
             : Regex.IsMatch(q, @"this week") ? "this_week"
             : Regex.IsMatch(q, @"(past|last) (week|7 days|seven days)") ? "last_7_days"
+            : Regex.Match(q, @"(past|last) (\d{1,2}) days") is { Success: true } days && int.Parse(days.Groups[2].Value) is >= 2 and <= 90 ? $"last_{int.Parse(days.Groups[2].Value)}_days"
+            : Regex.Match(q, @"(past|last) (two|three|four|five|six|seven) days") is { Success: true } worded ? $"last_{Array.IndexOf(DayWords, worded.Groups[2].Value) + 2}_days"
             : Regex.IsMatch(q, @"(past|last) (30 days|thirty days)") ? "last_30_days"
             : q.Contains("this month") ? "this_month"
             : q.Contains("last month") ? "last_month"
             : "all_time";
 
-        var wantsSeries = Regex.IsMatch(q, @"\b(trend|chart|graph|plot|per day|daily|increase|decrease|growth|grew|over the)\b|%|percent");
+        var wantsSeries = Regex.IsMatch(q, @"\b(trend|chart|graph|plot|per day|daily|increase|decrease|growth|grew|status|progress|performance|overview|doing)\b|%|percent");
         var seriesDays = period switch
         {
             "last_30_days" or "this_month" or "last_month" => 30,
             "today" or "yesterday" or "this_week" or "last_7_days" => 7,
+            _ when LastDays(period) is { } lastDays => lastDays,
             _ => 14,
         };
         if (wantsSeries && period == "all_time") period = "last_7_days";

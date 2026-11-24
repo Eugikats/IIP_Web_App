@@ -138,6 +138,12 @@ public sealed class VoiceSessionBroker(
             await AuditAsync(session, "voice.session.started", "A live voice conversation started.");
             call.Pump = Task.Run(() => PumpAsync(call), CancellationToken.None);
             _ = Task.Run(() => WatchdogAsync(call), CancellationToken.None);
+            if (conversationId is null)
+            {
+                // A new conversation: IIP speaks first. Carrying on an earlier chat, or reconnecting, does not greet again.
+                _ = Task.Run(() => OpenAsync(call), CancellationToken.None);
+            }
+
             session.Cancellation.CancelAfter(limits.MaxSessionLength);
             return new VoiceStarted(session.Id, answer, (int)limits.MaxSessionLength.TotalMinutes);
         }
@@ -210,6 +216,33 @@ public sealed class VoiceSessionBroker(
         }
 
         await AuditAsync(session, "voice.session.ended", $"The live conversation ended ({reason}) after {(int)seconds} seconds with {session.ToolCalls} tool call(s).");
+    }
+
+    /// <summary>How long after the answer is sent the audio link is up, so the first words are not lost.</summary>
+    private static readonly TimeSpan OpenerDelay = TimeSpan.FromMilliseconds(1800);
+
+    /// <summary>Has IIP speak first, so the person hears something useful instead of waiting for a question.</summary>
+    private async Task OpenAsync(Call call)
+    {
+        var session = call.Session;
+        var token = session.Cancellation.Token;
+        try
+        {
+            await Task.Delay(OpenerDelay, Clock, token);
+            if (session.Locked || token.IsCancellationRequested)
+            {
+                return;
+            }
+
+            await call.Transport.SendAsync(
+                VoiceLiveProtocol.SystemNote("The call has just connected and the person has not spoken yet. Begin as your instructions say: greet them in one short sentence, say a brief 'let me check' phrase, look up the overview, then offer where to start."),
+                token);
+            await call.Transport.SendAsync(VoiceLiveProtocol.ResponseCreate(), token);
+        }
+        catch (Exception)
+        {
+            // The call ended or the link dropped before the opener could be sent; the pump closes the call.
+        }
     }
 
     private async Task PumpAsync(Call call)
@@ -326,7 +359,15 @@ public sealed class VoiceSessionBroker(
 
     internal const string VoiceInstructions =
         "You are IIP, a voice assistant for insurance staff, speaking aloud on a phone call. Speak in short, plain sentences, one or two at a time, in the language the person uses. " +
+        "You only help with this workspace: its claims, customer acquisition (prospects and new enquiries), customers, approvals, documents, and questions about the insurer's own products. " +
+        "You are not a general assistant. If asked anything else, such as general knowledge, politics, news, people, sport or opinions, do not answer it, even if you know the answer. " +
+        "Say kindly that it is outside what you help with here, then offer two or three things you can do instead. " +
+        "When the call begins, greet the person warmly in one short sentence, then call ask_analyst twice for a quick overview: first 'what needs my attention today', then 'how many new prospects came in over the past 3 days'. " +
+        "Say the two or three most useful things you found, and ask which they would like to start with, for example claims, acquisition or approvals. Never open by asking what they want to talk about with nothing to offer. " +
+        "Before you call any tool, say a brief natural phrase first, such as 'Sure, let me pull that up', 'One moment while I check', or 'Right, looking at that now', varied each time and never more than a few words, so the person is never left in silence. " +
+        "When you call ask_analyst, pass the person's own question in their own words as closely as you can. " +
         "For anything about the workspace's claims, customers, prospects, approvals, documents or figures, call ask_analyst and say only what it returns; never give a figure from memory. " +
+        "Never say 'approved sources' or talk about where your information is stored; just answer. If ask_analyst has nothing on the question, say so briefly and offer what you can look at. " +
         "Use make_visual when a chart or table would help, and say one sentence about it. Use show_on_screen only to offer to open something already mentioned. " +
         "Use prepare_draft to save a customer update for a person to approve; say plainly that nothing was sent. You can read, show and prepare, and nothing else: " +
         "never say you sent, approved, paid or changed anything. If a tool says the phone is locked, say so and give no figures. " +

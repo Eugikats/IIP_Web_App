@@ -867,7 +867,13 @@ builder.Services.AddScoped<InsuranceIntelligence.Application.DemoScenarios.DemoS
 builder.Services.AddScoped<InsuranceIntelligence.Application.DemoScenarios.DemoScenarioService>();
 builder.Services.AddScoped<InsuranceIntelligence.Infrastructure.Translation.SunbirdVoiceNoteTranscriber>();
 builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.IVoiceNoteTranscriber>(sp => sp.GetRequiredService<InsuranceIntelligence.Infrastructure.Translation.SunbirdVoiceNoteTranscriber>());
-builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.IStaffVoiceTranscriber>(sp => sp.GetRequiredService<InsuranceIntelligence.Infrastructure.Translation.SunbirdVoiceNoteTranscriber>());
+builder.Services.AddSingleton(sp => new InsuranceIntelligence.Api.Voice.AzureSpeechStaffTranscriber(
+    sp.GetRequiredService<InsuranceIntelligence.Application.Voice.VoiceLiveOptions>(),
+    InsuranceIntelligence.Api.Azure.AzureProviderSupport.Credential(),
+    sp.GetRequiredService<IHttpClientFactory>()));
+builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.IStaffVoiceTranscriber>(sp => new InsuranceIntelligence.Api.Voice.StaffVoiceTranscriberWithFallback(
+    sp.GetRequiredService<InsuranceIntelligence.Infrastructure.Translation.SunbirdVoiceNoteTranscriber>(),
+    sp.GetRequiredService<InsuranceIntelligence.Api.Voice.AzureSpeechStaffTranscriber>()));
 builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.IVoiceNoteSpeaker>(sp => sp.GetRequiredService<InsuranceIntelligence.Infrastructure.Translation.SunbirdVoiceNoteTranscriber>());
 builder.Services.AddScoped<InsuranceIntelligence.Application.CustomerAssistant.IDemoPolicyholderLoader>(
     services => services.GetRequiredService<InsuranceIntelligence.Application.DemoSeeding.MicroinsuranceDemoSeeder>());
