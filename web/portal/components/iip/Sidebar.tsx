@@ -37,7 +37,7 @@ const PEEK_CLOSE_DELAY_MS = 180;
 //
 // The rail follows CIP: a short primary set, the rest under one "More tools" menu grouped by purpose, and a
 // separate sidebar for the organisation platform (see PLATFORM_ITEMS).
-const RAIL_GROUPS: { label: string; items: { to: string; label: string; icon: typeof MessageSquare }[] }[] = [
+export const RAIL_GROUPS: { label: string; items: { to: string; label: string; icon: typeof MessageSquare }[] }[] = [
   {
     label: "Work",
     items: [
@@ -45,12 +45,13 @@ const RAIL_GROUPS: { label: string; items: { to: string; label: string; icon: ty
       { to: "/app/claims", label: "Claims", icon: FileSearch },
       { to: "/app/acquisition", label: "Acquisition", icon: Building2 },
       { to: "/app/platform/automations", label: "Automations", icon: Bot },
+      { to: "/app/platform/workspaces", label: "Workspaces", icon: LayoutGrid },
     ],
   },
 ];
 
 // Every other screen, one step away under the rail's "More tools" button, grouped by what the person is doing.
-const MORE_TOOLS: { title: string; items: { to: string; label: string; icon: typeof MessageSquare }[] }[] = [
+export const MORE_TOOLS: { title: string; items: { to: string; label: string; icon: typeof MessageSquare }[] }[] = [
   {
     title: "Work queues",
     items: [
@@ -95,7 +96,6 @@ const MORE_TOOLS: { title: string; items: { to: string; label: string; icon: typ
     title: "Organisation",
     items: [
       { to: "/app/platform", label: "Organisation overview", icon: Building2 },
-      { to: "/app/platform/workspaces", label: "All workspaces", icon: LayoutGrid },
       { to: "/app/platform/reports", label: "Reports", icon: FileText },
       { to: "/app/platform/conversations", label: "Conversations", icon: MessageSquare },
     ],
@@ -112,7 +112,7 @@ const PLATFORM_ITEMS: { to: string; label: string; icon: typeof MessageSquare; e
   { to: "/app/platform/settings", label: "Settings", icon: Settings },
 ];
 
-function isActive(pathname: string, to: string, exact = false) {
+export function isActive(pathname: string, to: string, exact = false) {
   if (exact) return pathname === to;
   return to === "/app" ? pathname === "/app" : pathname === to || pathname.startsWith(to + "/");
 }
@@ -381,7 +381,9 @@ export default function Sidebar({ modal = false, onNavigate }: { modal?: boolean
   return (
     // The wrapper keeps the page's share of the width at the pinned size; the sidebar itself is
     // positioned over the page, so a peek slides over the content instead of pushing it.
-    <div className={cn("relative h-full shrink-0 transition-[width] duration-dls-panel ease-dls", pinned ? "w-64" : "w-20", !expandedLoaded && "invisible")}>
+    // Below the md breakpoint the rail is hidden and MobileNav is the navigation; this stays mounted because it owns the
+    // Settings dialog (opened by the `iip:open-settings` event) and the global search shortcut.
+    <div className={cn("relative h-full shrink-0 transition-[width] duration-dls-panel ease-dls max-md:hidden", pinned ? "w-64" : "w-20", !expandedLoaded && "invisible")}>
     <aside
       ref={asideRef}
       aria-label="Primary navigation"

@@ -274,8 +274,8 @@ export default function CustomerAcquisition() {
         <ChannelIntelligenceTab />
       ) : (
         <>
-          <div className="flex items-start gap-2">
-            <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-start gap-2 md:flex-nowrap">
+            <div className="min-w-0 flex-1 max-md:basis-full">
               <AcquisitionFilterToolbar
                 fields={filterFields}
                 activeChips={activeChips}

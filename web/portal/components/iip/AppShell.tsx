@@ -5,6 +5,7 @@ import { useLocation, Navigate } from "@/components/iip/NextRouterCompat";
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import Sidebar from "./Sidebar";
+import MobileNav from "./MobileNav";
 import FirstRunOrientation from "./FirstRunOrientation";
 import AssistantBar from "./AssistantBar";
 import CopilotPanel from "./CopilotPanel";
@@ -143,11 +144,21 @@ function ShellInner({ children }: { children: ReactNode }) {
     return <Navigate to={fallback} replace />;
   }
 
+  // The working screens use the full width (workspace, acquisition, inbox); every other page keeps the reading width.
+  // On a phone the workspace owns its whole column (it docks the composer to the bottom), and the others get 16px gutters.
+  const contentColumn = loc.pathname.startsWith("/app/workspace")
+    ? "max-w-[1760px] max-md:flex max-md:min-h-full max-md:flex-col md:px-6 md:pb-[60px] md:pt-7"
+    : loc.pathname.startsWith("/app/channels") || loc.pathname.startsWith("/app/acquisition")
+      ? "max-w-[1760px] px-4 pb-8 pt-5 md:px-6 md:pb-[60px] md:pt-7"
+      : "max-w-[1040px] px-4 pb-8 pt-5 md:px-8 md:pb-[60px] md:pt-7";
+
   return (
     <div className="flex h-[100dvh] w-full flex-col overflow-hidden bg-dls-bg-page">
+      <MobileNav />
       <div className="relative flex flex-1 overflow-hidden">
-        {/* The rail is always present at every viewport width (navigation model §5.1), it never
-            collapses into an off-canvas drawer, so there is no mobile open/close state to manage. */}
+        {/* From 768px up the rail is always present (navigation model §5.1), it never collapses into an
+            off-canvas drawer. On a phone it would take 80px of a 411px screen, so there it is replaced by
+            a top bar with a menu drawer (MobileNav, above); the rail stays mounted, hidden, because it owns Settings. */}
         <Sidebar />
         <ContextualPanel />
 
@@ -187,7 +198,7 @@ function ShellInner({ children }: { children: ReactNode }) {
           <main className="flex-1 overflow-y-auto">
             {/* The CIP-style working screens (workspace, acquisition and inbox) use the full width; every
                 other page keeps the reading width. */}
-            <div className={`mx-auto pb-[60px] pt-7 ${loc.pathname.startsWith("/app/workspace") ? "max-w-[1760px] px-3 sm:px-6" : loc.pathname.startsWith("/app/channels") || loc.pathname.startsWith("/app/acquisition") ? "max-w-[1760px] px-6" : "max-w-[1040px] px-8"}`}>{children}</div>
+            <div className={`mx-auto ${contentColumn}`}>{children}</div>
           </main>
           {!loc.pathname.startsWith("/app/workspace") ? <AssistantBar /> : null}
         </div>

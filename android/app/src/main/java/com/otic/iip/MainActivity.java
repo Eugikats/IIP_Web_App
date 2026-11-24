@@ -11,6 +11,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.graphics.Insets;
 import android.net.Uri;
 import android.os.Build;
@@ -19,6 +20,8 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
+import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.view.WindowInsets;
@@ -96,8 +99,14 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
 
         webView = new WebView(this);
-        setContentView(webView);
-        keepContentClearOfSystemBars(webView);
+        // A WebView ignores its own padding when it lays the page out, so the page drew under the status bar.
+        // The padding goes on a plain container around it instead, and the WebView fills what is left.
+        FrameLayout frame = new FrameLayout(this);
+        frame.setBackgroundColor(Color.WHITE);
+        frame.addView(webView, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        setContentView(frame);
+        keepContentClearOfSystemBars(frame);
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);

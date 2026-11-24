@@ -124,13 +124,13 @@ export default function ClaimsQueue() {
             <span className="sr-only">Search claims</span>
             <input id="claim-search" name="claim-search" aria-label="Search claims" autoComplete="off" value={q} onChange={e => setQ(e.target.value)} placeholder="Search claim, customer, policy, assignment…" className="min-w-0 flex-1 bg-transparent text-[13px] text-dls-text-primary outline-none placeholder:text-dls-text-muted" />
           </label>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex gap-1.5 max-md:-mx-1 max-md:w-full max-md:overflow-x-auto max-md:px-1 md:flex-wrap">
             {quickFilters.map(x => (
               <button
                 key={x}
                 type="button"
                 onClick={() => setF(x)}
-                className={`dls-focus-outline min-h-11 rounded-dls-chip border px-3 py-2 text-[12px] font-semibold transition-colors duration-dls-fast ease-dls ${f === x ? "border-dls-primary bg-dls-primary text-dls-text-inverse" : "border-dls-border-input bg-dls-surface text-dls-text-secondary hover:border-dls-primary"}`}
+                className={`dls-focus-outline min-h-11 shrink-0 whitespace-nowrap rounded-dls-chip border px-3 py-2 text-[12px] font-semibold transition-colors duration-dls-fast ease-dls ${f === x ? "border-dls-primary bg-dls-primary text-dls-text-inverse" : "border-dls-border-input bg-dls-surface text-dls-text-secondary hover:border-dls-primary"}`}
               >
                 {x} <span className="ml-1 text-[10px] opacity-80">{snapshotAvailable ? quickCounts.get(x) ?? 0 : "-"}</span>
               </button>

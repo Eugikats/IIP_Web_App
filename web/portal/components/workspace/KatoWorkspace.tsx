@@ -533,7 +533,7 @@ export default function KatoWorkspace() {
   if (canClaims) queues.push({ to: "/app/claims", title: "Claims needing attention", detail: "Open the claims queue.", icon: FolderOpen });
 
   const composer = (
-    <div className="w-full shrink-0">
+    <div className="flex w-full shrink-0 flex-col">
       {file ? (
         <p className="mx-auto mb-2 flex w-full max-w-3xl items-center gap-2 px-2 text-xs text-slate-600">
           <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2.5 py-1">
@@ -576,14 +576,14 @@ export default function KatoWorkspace() {
         attachTitle={canManage ? "Attach an .xlsx or .csv workbook" : "Your role cannot analyse customer files"}
       />
       {canView && !hasThread ? (
-        <ul className="m-0 mx-auto mt-3 flex max-w-3xl list-none flex-wrap justify-center gap-1.5 p-0">
+        <ul className="m-0 mx-auto mt-3 flex w-full max-w-3xl list-none flex-wrap justify-center gap-1.5 p-0 max-md:order-first max-md:mb-2.5 max-md:mt-0 max-md:flex-nowrap max-md:justify-start max-md:overflow-x-auto">
           {SUGGESTIONS.map((suggestion) => (
-            <li key={suggestion}>
+            <li key={suggestion} className="max-md:shrink-0">
               <button
                 type="button"
                 disabled={!!busy}
                 onClick={() => void submit(suggestion)}
-                className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-slate-200/90 bg-white/80 px-3 py-1 text-xs text-slate-600 transition hover:border-[#1769FF]/40 hover:text-[#0B1640] disabled:opacity-60"
+                className="inline-flex min-h-8 items-center gap-1.5 whitespace-nowrap rounded-full border border-slate-200/90 bg-white/80 px-3 py-1 text-xs max-md:min-h-10 max-md:text-[13px] text-slate-600 transition hover:border-[#1769FF]/40 hover:text-[#0B1640] disabled:opacity-60"
               >
                 <BarChart3 className="h-3 w-3 text-[#1769FF]" aria-hidden />
                 {suggestion}
@@ -597,12 +597,12 @@ export default function KatoWorkspace() {
 
   if (!hasThread) {
     return (
-      <div className="cip-cc -mx-3 -mb-[60px] -mt-7 flex min-h-[100dvh] flex-col px-4 pb-4 pt-7 sm:-mx-6 sm:px-6">
+      <div className="cip-cc flex flex-col px-4 pt-4 max-md:flex-1 md:-mx-6 md:-mb-[60px] md:-mt-7 md:min-h-[100dvh] md:px-6 md:pb-4 md:pt-7">
         <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col">
           <div className="flex-1" aria-hidden="true" />
           <header className="shrink-0 text-center">
             <div className="mb-4 flex flex-col items-center gap-1.5">
-              <AgentOrb state={busy ? "processing" : "idle"} size={64} />
+              <AgentOrb state={busy ? "processing" : "idle"} size={56} />
               <span className="text-xs text-slate-500" role="status">{busy ? "Working on it" : "Ready"}</span>
             </div>
             <p className="m-0 mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
@@ -619,15 +619,19 @@ export default function KatoWorkspace() {
           </header>
           {canAssistant ? <AgentBrief brief={brief} /> : null}
           <div className="flex-1" aria-hidden="true" />
+          {/* On a phone the composer is the last thing in the column and sticks to the bottom of the screen, as in
+              Claude and ChatGPT; the greeting, brief and queues scroll above it. */}
           {hasComposer ? (
-            composer
+            <div className="max-md:sticky max-md:bottom-0 max-md:order-last max-md:-mx-4 max-md:bg-white/95 max-md:px-4 max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))] max-md:pt-2">
+              {composer}
+            </div>
           ) : (
             <p className="mx-auto m-0 max-w-xl rounded-2xl border border-slate-100 bg-white px-4 py-4 text-center text-[13px] text-slate-500">
               Your workspace is ready. Ask your administrator to assign the work queues you need.
             </p>
           )}
           {queues.length > 0 ? (
-            <section className="mx-auto mt-10 w-full max-w-4xl pb-2" aria-label="Your work queues">
+            <section className="mx-auto mt-6 w-full max-w-4xl pb-4 md:mt-10 md:pb-2" aria-label="Your work queues">
               <div className="mb-5 flex items-center gap-3">
                 <div className="h-px flex-1 bg-slate-200/80" />
                 <h2 className="m-0 shrink-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">Your work queues</h2>
@@ -640,14 +644,14 @@ export default function KatoWorkspace() {
               </div>
             </section>
           ) : null}
-          <div className="h-[min(8vh,4rem)] shrink-0" aria-hidden="true" />
+          <div className="h-[min(8vh,4rem)] shrink-0 max-md:hidden" aria-hidden="true" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="cip-cc -mx-3 -mb-[60px] -mt-7 flex min-h-[100dvh] flex-col px-4 pt-7 sm:-mx-6 sm:px-6">
+    <div className="cip-cc flex flex-col px-4 pt-2 max-md:flex-1 md:-mx-6 md:-mb-[60px] md:-mt-7 md:min-h-[100dvh] md:px-6 md:pt-7">
       <div className="mx-auto w-full max-w-4xl flex-1 space-y-4 pb-6 pt-3 sm:space-y-5 sm:pt-5" aria-live="polite">
         {messages.map((message) => {
           if (message.from === "user") {
@@ -686,7 +690,7 @@ export default function KatoWorkspace() {
       </div>
 
       {hasComposer ? (
-        <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-white via-white/95 to-transparent px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-8 sm:-mx-6 sm:px-6">
+        <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-white via-white/95 to-transparent px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-6 md:-mx-6 md:px-6 md:pt-8">
           {composer}
         </div>
       ) : null}
