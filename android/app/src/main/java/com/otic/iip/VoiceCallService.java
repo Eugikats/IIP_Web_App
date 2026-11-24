@@ -55,12 +55,17 @@ public class VoiceCallService extends Service {
             case ACTION_START:
                 running = true;
                 muted = false;
-                showNotification();
+                if (!showNotification()) {
+                    endService();
+                    break;
+                }
                 holdCpu();
                 break;
             case ACTION_MUTE_STATE:
                 muted = intent.getBooleanExtra(EXTRA_MUTED, false);
-                showNotification();
+                if (!showNotification()) {
+                    endService();
+                }
                 break;
             case ACTION_MUTE_PRESSED:
                 sendToPage(ACTION_MUTE_PRESSED);
@@ -104,7 +109,8 @@ public class VoiceCallService extends Service {
         sendBroadcast(forward);
     }
 
-    private void showNotification() {
+    /** Returns false when Android refuses a microphone service (for example the microphone is not allowed yet). */
+    private boolean showNotification() {
         NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && manager != null) {
             NotificationChannel channel = new NotificationChannel(
@@ -130,10 +136,16 @@ public class VoiceCallService extends Service {
                 .setOnlyAlertOnce(true)
                 .addAction(action(muted ? "Unmute" : "Mute", ACTION_MUTE_PRESSED, 1))
                 .addAction(action("Hang up", ACTION_HANG_UP_PRESSED, 2));
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(NOTIFICATION_ID, builder.build(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
-        } else {
-            startForeground(NOTIFICATION_ID, builder.build());
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(NOTIFICATION_ID, builder.build(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
+            } else {
+                startForeground(NOTIFICATION_ID, builder.build());
+            }
+            return true;
+        } catch (RuntimeException e) {
+            // Without this the whole app closes; the call itself still works while the screen is on.
+            return false;
         }
     }
 

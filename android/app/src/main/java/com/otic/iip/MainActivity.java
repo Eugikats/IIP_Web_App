@@ -302,6 +302,10 @@ public class MainActivity extends Activity {
             pendingMicrophoneRequest = null;
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 request.grant(request.getResources());
+                if (callOpen) {
+                    // The call began while the prompt was open, so its background service could not start then.
+                    callService(VoiceCallService.ACTION_START, null);
+                }
             } else {
                 request.deny();
             }
@@ -341,6 +345,16 @@ public class MainActivity extends Activity {
     }
 
     private void callService(String action, Boolean muted) {
+        if (VoiceCallService.ACTION_START.equals(action)
+                && checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            // Android 14 and later kill the app if a microphone service starts before the microphone is allowed.
+            // The service is started from the permission result instead, once the person has said yes.
+            return;
+        }
+        if (VoiceCallService.ACTION_MUTE_STATE.equals(action) && !VoiceCallService.running) {
+            // No call service is holding the call (the microphone was not allowed), so there is nothing to update.
+            return;
+        }
         Intent intent = new Intent(this, VoiceCallService.class).setAction(action);
         if (muted != null) {
             intent.putExtra(VoiceCallService.EXTRA_MUTED, muted.booleanValue());
