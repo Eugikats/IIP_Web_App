@@ -25,7 +25,7 @@ test("The sidebar keeps a short primary set, groups the rest under More tools an
   for (const label of ["Work", "Manage"]) {
     await expect(sidebar.getByText(label, { exact: true })).toBeVisible();
   }
-  for (const label of ["Workspace", "Claims", "Acquisition", "Automations"]) {
+  for (const label of ["Workspace", "Claims", "Acquisition", "Automations", "Workspaces"]) {
     await expect(sidebar.getByRole("link", { name: label, exact: true })).toBeVisible();
   }
   await expect(sidebar.getByRole("button", { name: "Integrations" })).toBeVisible();
